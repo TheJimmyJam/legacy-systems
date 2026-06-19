@@ -78,6 +78,8 @@
   .who button { background:none; border:1px solid var(--border-hot); color:var(--text-dim);
     font-family:var(--mono); font-size:10px; padding:4px 8px; cursor:pointer; letter-spacing:1px; }
   .who button:hover { color: var(--green); border-color: var(--green); }
+  .btn-export { border-color: var(--amber) !important; color: var(--amber) !important; }
+  .btn-export:hover { background: var(--amber) !important; color: var(--bg) !important; border-color: var(--amber) !important; }
 
   .nav { display:flex; gap:2px; padding: 0 16px; border-bottom:1px solid var(--border);
     background:#0c100c; overflow-x:auto; }
@@ -971,6 +973,133 @@ function download(filename, text, mime){
   const a = document.createElement("a");
   a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url), 1500);
+}
+
+function exportBible(data) {
+  const { factions, characters, systems, scenes, themes, arcs, events, notes } = data;
+  const date = new Date().toLocaleDateString("en-US", {year:"numeric",month:"long",day:"numeric"});
+  const lines = [];
+
+  lines.push(`# LEGACY SYSTEMS — Story Bible Export`);
+  lines.push(`*Generated: ${date}*`);
+  lines.push(`\n> **Legacy Systems** — A 72-hour race to manually restart civilization's critical infrastructure before permanent failure, while an ideological insurgency fights to let it die.\n`);
+  lines.push("---\n");
+
+  // ── FACTIONS ──
+  lines.push("## FACTIONS\n");
+  (factions||[]).forEach(f => {
+    lines.push(`### ${f.name}`);
+    if (f.description) lines.push(f.description);
+    lines.push("");
+  });
+  lines.push("---\n");
+
+  // ── CHARACTERS ──
+  lines.push("## CHARACTERS\n");
+  const charsByFaction = {};
+  (characters||[]).forEach(c => {
+    const fac = (factions||[]).find(f=>f.id===c.faction_id);
+    const facName = fac?.name || "Unassigned";
+    if (!charsByFaction[facName]) charsByFaction[facName] = [];
+    charsByFaction[facName].push(c);
+  });
+  FACTION_ORDER.forEach(fname => {
+    const group = charsByFaction[fname];
+    if (!group?.length) return;
+    lines.push(`### ${fname.toUpperCase()}\n`);
+    group.forEach(c => {
+      const mainTag = c.status === "idea" ? " *(secondary)*" : "";
+      lines.push(`**${c.full_name || c.name}**${mainTag} — Age ${c.age||"?"} — ${c.knowledge_domain||""}`);
+      if (c.description) lines.push(c.description);
+      lines.push("");
+    });
+  });
+  lines.push("---\n");
+
+  // ── CHARACTER ARCS ──
+  if (arcs?.length) {
+    lines.push("## CHARACTER ARCS\n");
+    arcs.forEach(a => {
+      const ch = (characters||[]).find(c=>c.id===a.character_id);
+      lines.push(`**${ch?.full_name||ch?.name||"Unknown"}** — ${a.arc_type||""} arc — Status: ${a.status||""}`);
+      if (a.arc_text) lines.push(a.arc_text);
+      lines.push("");
+    });
+    lines.push("---\n");
+  }
+
+  // ── INFRASTRUCTURE SYSTEMS ──
+  if (systems?.length) {
+    lines.push("## INFRASTRUCTURE SYSTEMS\n");
+    const byCategory = {};
+    systems.forEach(s => {
+      const cat = s.category || "Other";
+      if (!byCategory[cat]) byCategory[cat] = [];
+      byCategory[cat].push(s);
+    });
+    Object.entries(byCategory).forEach(([cat, sysList]) => {
+      lines.push(`### ${cat}\n`);
+      sysList.forEach(s => {
+        const status = {green:"✓ STABLE", yellow:"⚠ AT RISK", red:"✕ CRITICAL"}[s.status] || s.status;
+        lines.push(`**${s.name}** — ${status}${s.countdown_hours ? ` — ${s.countdown_hours}h to failure` : ""}`);
+        if (s.description) lines.push(s.description);
+        if (s.manual_override_note) lines.push(`*Manual override: ${s.manual_override_note}*`);
+        lines.push("");
+      });
+    });
+    lines.push("---\n");
+  }
+
+  // ── 72-HOUR CRISIS TIMELINE ──
+  if (events?.length) {
+    lines.push("## 72-HOUR CRISIS TIMELINE\n");
+    const sorted = [...events].sort((a,b)=>(a.hours_in||0)-(b.hours_in||0));
+    sorted.forEach(e => {
+      lines.push(`**T+${e.hours_in||0}h — ${e.title}**`);
+      if (e.description) lines.push(e.description);
+      lines.push("");
+    });
+    lines.push("---\n");
+  }
+
+  // ── SCENES ──
+  if (scenes?.length) {
+    lines.push("## SCENES\n");
+    scenes.forEach(s => {
+      lines.push(`### ${s.scene_number ? `Scene ${s.scene_number}: ` : ""}${s.title}`);
+      if (s.location) lines.push(`*Location: ${s.location}*`);
+      if (s.status) lines.push(`*Status: ${s.status}*`);
+      if (s.description) lines.push(`\n${s.description}`);
+      if (s.content) lines.push(`\n${s.content}`);
+      lines.push("");
+    });
+    lines.push("---\n");
+  }
+
+  // ── THEMES ──
+  if (themes?.length) {
+    lines.push("## THEMES\n");
+    themes.forEach(t => {
+      lines.push(`**${t.name}** — ${t.status||""}`);
+      if (t.description) lines.push(t.description);
+      lines.push("");
+    });
+    lines.push("---\n");
+  }
+
+  // ── RECENT NOTES ──
+  const recentNotes = (notes||[]).slice(0, 20);
+  if (recentNotes.length) {
+    lines.push("## ROOM NOTES (most recent 20)\n");
+    recentNotes.forEach(n => {
+      const when = n.created_at ? new Date(n.created_at).toLocaleDateString() : "";
+      lines.push(`**[${when}]** ${n.content}`);
+      lines.push("");
+    });
+  }
+
+  const filename = `LegacySystems_Bible_${new Date().toISOString().slice(0,10)}.md`;
+  download(filename, lines.join("\n"), "text/markdown;charset=utf-8");
 }
 
 function screenplayPrintDoc(scenes){
@@ -2011,6 +2140,7 @@ function App() {
         </div>
         <div className="who">
           <button onClick={toggleTheme} title="Toggle light / dark">{theme==="dark" ? "☀ Light" : "☾ Dark"}</button>
+          <button className="btn-export" onClick={()=>exportBible(data)} title="Export full story bible as .md for ChatGPT / Claude">⬇ Export Bible</button>
           <span>{user.email}</span>
           <button onClick={()=>sb.auth.signOut()}>Sign out</button>
         </div>

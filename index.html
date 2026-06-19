@@ -985,6 +985,28 @@ function exportBible(data) {
   lines.push(`\n> **Legacy Systems** — A 72-hour race to manually restart civilization's critical infrastructure before permanent failure, while an ideological insurgency fights to let it die.\n`);
   lines.push("---\n");
 
+  // ── CANON SECTIONS ──
+  lines.push("## CURRENT CANON");
+  lines.push("*Decisions that are locked.*\n");
+  lines.push("- The inciting event is a Carrington-class geomagnetic storm (Sept 14, 2027, 11:47 AM Eastern).");
+  lines.push("- The story runs 72 hours from storm to first stabilized system.");
+  lines.push("- Three factions: Legacy Engineers (old-world knowledge), The SRU (government authority), The Sovereigns (ideological insurgency).");
+  lines.push("- Vivian Rusk — not Cole Bridger — is the true architect of the Sovereign network.");
+  lines.push("- Grace Bridger (Cole's daughter) is the potential defector / emotional fracture inside the Sovereigns.");
+  lines.push("- Vic Harrow assembled the Legacy Engineers. He warned about civilizational single-point failure and was ignored.");
+  lines.push("- Alan Morse and Vivian Rusk may know each other from pre-crash policy circles.\n");
+  lines.push("---\n");
+
+  lines.push("## STILL FLUID");
+  lines.push("*Ideas we like but may change.*\n");
+  lines.push("- *(Add fluid ideas here — character arcs, plot beats, structural choices under debate)*\n");
+  lines.push("---\n");
+
+  lines.push("## CONTINUITY WATCHLIST");
+  lines.push("*Names, dates, mechanics, or plot points that need cleanup.*\n");
+  lines.push("- *(Log continuity flags here — inconsistencies, unresolved references, placeholder names)*\n");
+  lines.push("---\n");
+
   // ── FACTIONS ──
   lines.push("## FACTIONS\n");
   (factions||[]).forEach(f => {
@@ -1053,9 +1075,22 @@ function exportBible(data) {
   // ── 72-HOUR CRISIS TIMELINE ──
   if (events?.length) {
     lines.push("## 72-HOUR CRISIS TIMELINE\n");
-    const sorted = [...events].sort((a,b)=>(a.hours_in||0)-(b.hours_in||0));
+    const parseHours = st => {
+      if (!st) return 999;
+      const s = st.toLowerCase().trim();
+      const hourMatch = s.match(/hour\s*(\d+)/);
+      if (hourMatch) return parseInt(hourMatch[1]);
+      const dayMatch = s.match(/day\s*(\d+)/);
+      if (dayMatch) return parseInt(dayMatch[1]) * 24;
+      const hMatch = s.match(/^(\d+)h/);
+      if (hMatch) return parseInt(hMatch[1]);
+      return 999;
+    };
+    const sorted = [...events].sort((a,b)=>parseHours(a.story_time)-parseHours(b.story_time));
     sorted.forEach(e => {
-      lines.push(`**T+${e.hours_in||0}h — ${e.title}**`);
+      const h = parseHours(e.story_time);
+      const label = h < 999 ? `T+${h}h` : (e.story_time||"T+?h");
+      lines.push(`**${label} — ${e.title}**`);
       if (e.description) lines.push(e.description);
       lines.push("");
     });

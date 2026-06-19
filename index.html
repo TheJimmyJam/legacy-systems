@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LEGACY SYSTEMS — Writers' Room</title>
+
+<!-- ============================================================
+     CONFIG — edit here, no build step.
+     To let Ryan in: add his email to WHITELIST below (lowercase),
+     then I create his Supabase user with his PIN.
+     ============================================================ -->
+<script>
+  window.LS_CONFIG = {
+    SUPABASE_URL: "https://azkyohtmhlvnkziuvgvk.supabase.co",
+    SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6a3lvaHRtaGx2bmt6aXV2Z3ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNTQxMTQsImV4cCI6MjA5MjgzMDExNH0.BTN2ByDMpgmv5cn1e4--cfYLFUCS23ZnOYaz4gf8qLM",
+    // App appends this to the typed PIN before auth (satisfies Supabase's
+    // 6-char password minimum). Must match what the user was created with.
+    PIN_SALT: "::LSRoom",
+    // --- WHO CAN SIGN IN. Add Ryan here later. ---
+    WHITELIST: [
+      "wcannon83@gmail.com",
+      "ryankross@gmail.com"
+    ]
+  };
+</script>
+
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  :root {
+    --bg:        #0a0e0a;
+    --bg-panel:  #11161180;
+    --panel:     #0f140f;
+    --border:    #1f2a1f;
+    --border-hot:#2c3a2c;
+    --green:     #39d353;  /* phosphor green */
+    --amber:     #d29922;  /* phosphor amber */
+    --red:       #f85149;
+    --blue:      #58a6ff;
+    --text:      #c9d6c9;
+    --text-dim:  #6b7d6b;
+    --mono: "SFMono-Regular", "Roboto Mono", Menlo, Consolas, monospace;
+    --display: "Arial Black", "Helvetica Neue", Impact, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    background:
+      radial-gradient(ellipse at 50% -10%, #12201280 0%, transparent 60%),
+      repeating-linear-gradient(0deg, #0000 0 2px, #00000022 2px 3px),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  a { color: var(--green); }
+  ::selection { background: var(--green); color: #000; }
+
+  .scanline { position: fixed; inset: 0; pointer-events:none; z-index:9999;
+    background: repeating-linear-gradient(0deg, #0000 0 3px, #00000018 3px 4px); }
+
+  /* ---------- shell ---------- */
+  .topbar { display:flex; align-items:center; justify-content:space-between;
+    padding: 12px 22px; border-bottom: 1px solid var(--border-hot);
+    background: linear-gradient(#0d120d, #0a0e0a); position:sticky; top:0; z-index:50; }
+  .brand { display:flex; align-items:baseline; gap:12px; }
+  .brand h1 { font-family: var(--display); letter-spacing:2px; font-size:18px;
+    margin:0; color:#eafaea; text-transform:uppercase;
+    text-shadow: 0 0 8px #39d35355; }
+  .brand .sub { color: var(--amber); font-size:11px; letter-spacing:3px; text-transform:uppercase; }
+  .who { font-size:11px; color: var(--text-dim); display:flex; gap:14px; align-items:center; }
+  .who button { background:none; border:1px solid var(--border-hot); color:var(--text-dim);
+    font-family:var(--mono); font-size:10px; padding:4px 8px; cursor:pointer; letter-spacing:1px; }
+  .who button:hover { color: var(--green); border-color: var(--green); }
+
+  .nav { display:flex; gap:2px; padding: 0 16px; border-bottom:1px solid var(--border);
+    background:#0c100c; overflow-x:auto; }
+  .nav button { background:none; border:none; border-bottom:2px solid transparent;
+    color: var(--text-dim); font-family: var(--mono); font-size:12px; letter-spacing:1px;
+    padding: 12px 16px; cursor:pointer; text-transform:uppercase; white-space:nowrap; }
+  .nav button:hover { color: var(--text); }
+  .nav button.active { color: var(--green); border-bottom-color: var(--green);
+    text-shadow:0 0 6px #39d35355; }
+  .nav button.soon { color:#3a473a; cursor:default; }
+  .nav button.soon:hover { color:#3a473a; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 22px 80px; }
+
+  .panel { border:1px solid var(--border-hot); background: var(--panel);
+    padding: 20px 22px; margin-bottom: 18px; }
+  .panel h2 { font-family:var(--display); letter-spacing:1px; font-size:14px;
+    text-transform:uppercase; color:#dff0df; margin:0 0 14px; border-bottom:1px solid var(--border);
+    padding-bottom:8px; }
+  .label { color: var(--amber); font-size:10px; letter-spacing:2px; text-transform:uppercase; }
+  .dim { color: var(--text-dim); }
+
+  /* ---------- login ---------- */
+  .login-shell { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+  .login-box { width:100%; max-width: 420px; border:1px solid var(--border-hot); background:var(--panel);
+    padding: 34px 30px; box-shadow: 0 0 60px #39d35311; }
+  .login-box h1 { font-family:var(--display); letter-spacing:3px; font-size:24px; margin:0 0 4px;
+    color:#eafaea; text-transform:uppercase; text-shadow:0 0 12px #39d35344; }
+  .login-box .tag { color:var(--amber); font-size:11px; letter-spacing:4px; text-transform:uppercase; margin-bottom:26px; }
+  input[type=email], input[type=text], textarea, select {
+    width:100%; background:#070a07; border:1px solid var(--border-hot); color:var(--text);
+    font-family:var(--mono); font-size:13px; padding:10px 12px; outline:none; }
+  input:focus, textarea:focus, select:focus { border-color: var(--green); box-shadow:0 0 0 1px #39d35355; }
+  textarea { resize:vertical; line-height:1.6; }
+  .btn { background:#0d160d; border:1px solid var(--green); color:var(--green);
+    font-family:var(--mono); font-size:12px; letter-spacing:2px; text-transform:uppercase;
+    padding:11px 18px; cursor:pointer; width:100%; margin-top:14px; transition:.15s; }
+  .btn:hover { background: var(--green); color:#000; }
+  .btn:disabled { opacity:.4; cursor:default; }
+  .btn.sm { width:auto; padding:6px 12px; font-size:10px; margin-top:0; }
+  .msg { margin-top:16px; font-size:12px; padding:10px 12px; border-left:2px solid var(--green); background:#0d160d; }
+  .msg.err { border-left-color: var(--red); color:#ffb3ad; background:#1a0d0d; }
+
+  /* ---------- pin pad ---------- */
+  .pin-dots { display:flex; gap:16px; justify-content:center; margin:6px 0 22px; }
+  .pin-dot { width:14px; height:14px; border-radius:50%; border:1px solid var(--border-hot);
+    background:#070a07; transition:.12s; }
+  .pin-dot.on { background:var(--green); border-color:var(--green); box-shadow:0 0 10px var(--green); }
+  .pinpad { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .pinkey { background:#0c110c; border:1px solid var(--border-hot); color:#dff0df;
+    font-family:var(--mono); font-size:22px; padding:16px 0; cursor:pointer; transition:.1s; }
+  .pinkey:hover:not(:disabled) { border-color:var(--green); color:var(--green); box-shadow:0 0 0 1px #39d35333; }
+  .pinkey:active:not(:disabled) { background:var(--green); color:#000; }
+  .pinkey.ghost { color:var(--text-dim); font-size:18px; }
+  .pinkey:disabled { opacity:.4; cursor:default; }
+
+  /* ---------- overview ---------- */
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  .stat-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap:10px; }
+  .stat { border:1px solid var(--border-hot); background:#0c110c; padding:12px 14px; }
+  .stat .n { font-size:26px; font-family:var(--display); color:var(--green); text-shadow:0 0 8px #39d35344; }
+  .stat .k { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--text-dim); }
+  .logline { font-size:16px; line-height:1.7; color:#e6f2e6; border-left:3px solid var(--amber); padding-left:16px; }
+  .kv { display:grid; grid-template-columns: 130px 1fr; gap:6px 14px; font-size:13px; }
+  .kv dt { color:var(--amber); font-size:10px; letter-spacing:1px; text-transform:uppercase; padding-top:3px; }
+  .kv dd { margin:0; }
+  .clock-row { display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); }
+  .lamp { width:11px; height:11px; border-radius:50%; flex:none; }
+  .lamp.green { background:var(--green); box-shadow:0 0 8px var(--green); }
+  .lamp.amber { background:var(--amber); box-shadow:0 0 8px var(--amber); }
+  .lamp.red   { background:var(--red);   box-shadow:0 0 10px var(--red); animation:blink 1.2s infinite; }
+  @keyframes blink { 50% { opacity:.35; } }
+
+  /* ---------- characters ---------- */
+  .faction-head { display:flex; align-items:center; gap:10px; margin: 26px 0 12px; }
+  .faction-head .bar { width:4px; height:20px; }
+  .faction-head h3 { font-family:var(--display); letter-spacing:1px; text-transform:uppercase;
+    font-size:13px; margin:0; }
+  .faction-head .ct { color:var(--text-dim); font-size:11px; }
+  .card-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(230px,1fr)); gap:12px; }
+  .char-card { border:1px solid var(--border-hot); background:#0c110c; padding:14px; cursor:pointer;
+    transition:.12s; position:relative; }
+  .char-card:hover { border-color: var(--green); box-shadow:0 0 0 1px #39d35333, 0 0 24px #39d35311; }
+  .char-card .nm { font-family:var(--display); font-size:15px; color:#eafaea; letter-spacing:.5px; }
+  .char-card .fn { font-size:11px; color:var(--text-dim); }
+  .char-card .dom { font-size:11px; color:var(--amber); margin-top:8px; letter-spacing:.5px; }
+  .char-card .age { position:absolute; top:12px; right:14px; font-size:11px; color:var(--text-dim); }
+  .pill { display:inline-block; font-size:9px; letter-spacing:1px; text-transform:uppercase;
+    padding:2px 7px; border:1px solid var(--border-hot); color:var(--text-dim); margin-top:10px; }
+
+  /* ---------- scenes ---------- */
+  .scenes-wrap { display:grid; grid-template-columns: 270px 1fr; gap:16px; align-items:start; }
+  .scene-rail { border:1px solid var(--border-hot); background:var(--panel); padding:14px; position:sticky; top:96px; max-height:calc(100vh - 120px); overflow-y:auto; }
+  .rail-act { color:var(--amber); font-size:10px; letter-spacing:2px; text-transform:uppercase; margin:0 0 7px; }
+  .scene-pill { display:flex; align-items:center; gap:8px; padding:9px 10px; border:1px solid var(--border);
+    background:#0c110c; margin-bottom:6px; cursor:pointer; transition:.1s; }
+  .scene-pill:hover { border-color:var(--border-hot); }
+  .scene-pill.active { border-color:var(--green); box-shadow:0 0 0 1px #39d35333; }
+  .scene-pill-t { flex:1; font-size:12px; color:#dff0df; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .scene-pill-s { font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; }
+  .sdot { width:8px; height:8px; border-radius:50%; flex:none; background:var(--text-dim); }
+  .sdot.idea{background:#4a5a4a;} .sdot.outlined{background:var(--amber);}
+  .sdot.drafted{background:var(--blue);} .sdot.done{background:var(--green);box-shadow:0 0 7px var(--green);}
+
+  .scene-editor { border:1px solid var(--border-hot); background:var(--panel); padding:18px 20px; min-height:60vh; }
+  .editor-bar { display:flex; gap:12px; align-items:center; margin-bottom:12px; }
+  .scene-title { flex:1; background:transparent; border:none; border-bottom:1px solid var(--border-hot);
+    color:#eafaea; font-family:var(--display); font-size:18px; letter-spacing:.5px; padding:6px 2px; }
+  .scene-title:focus { border-bottom-color:var(--green); box-shadow:none; }
+  .editor-bar-right { display:flex; gap:8px; }
+  .editor-bar-right select { width:auto; padding:7px 10px; font-size:11px; }
+  .char-tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+  .ctag { background:#0c110c; border:1px solid var(--border-hot); color:var(--text-dim);
+    font-family:var(--mono); font-size:10px; letter-spacing:1px; text-transform:uppercase;
+    padding:4px 9px; cursor:pointer; transition:.1s; }
+  .ctag:hover { color:var(--text); }
+  .ctag.on { color:#000; background:var(--green); border-color:var(--green); }
+  .script-area { width:100%; min-height:46vh; background:#070a07; border:1px solid var(--border-hot);
+    color:var(--text); font-family:var(--mono); font-size:14px; line-height:1.8; padding:16px 18px;
+    resize:vertical; white-space:pre-wrap; }
+  .editor-foot { display:flex; align-items:center; gap:16px; margin-top:14px; flex-wrap:wrap; }
+  .del-btn { margin-left:auto; background:none; border:1px solid var(--border-hot); color:var(--text-dim);
+    font-family:var(--mono); font-size:10px; letter-spacing:1px; text-transform:uppercase; padding:7px 12px; cursor:pointer; }
+  .del-btn:hover { color:var(--red); border-color:var(--red); }
+  @media (max-width:760px){ .scenes-wrap{ grid-template-columns:1fr; } .scene-rail{ position:static; max-height:none; } }
+
+  /* ---------- script: export / preview / help ---------- */
+  .export-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; border:1px solid var(--border-hot);
+    background:var(--panel); padding:12px 16px; margin-bottom:16px; }
+  .sp-toolbar { display:flex; gap:8px; margin-bottom:12px; align-items:center; }
+  .toggle { background:#0c110c; border:1px solid var(--border-hot); color:var(--text-dim);
+    font-family:var(--mono); font-size:11px; letter-spacing:1px; text-transform:uppercase; padding:6px 12px; cursor:pointer; }
+  .toggle:hover { color:var(--text); }
+  .toggle.on { color:#000; background:var(--green); border-color:var(--green); }
+  .fountain-help { border-left:2px solid var(--amber); background:#0d130d; padding:12px 16px; margin-bottom:14px; font-size:12px; line-height:1.7; }
+  .fountain-help ul { margin:8px 0; padding-left:18px; }
+  .fountain-help li { margin:3px 0; }
+  .fountain-help code { background:#1a221a; color:var(--green); padding:1px 5px; font-size:11px; }
+  .screenplay { font-family:"Courier New",Courier,monospace; background:var(--panel);
+    border:1px solid var(--border-hot); color:var(--text); padding:26px 34px; line-height:1.5;
+    min-height:46vh; max-width:660px; }
+  .screenplay p { margin:0; white-space:pre-wrap; }
+  .sp-scene { font-weight:bold; text-transform:uppercase; margin:16px 0 8px !important; }
+  .sp-action { margin:0 0 10px !important; }
+  .sp-char { margin:10px 0 0 38% !important; text-transform:uppercase; }
+  .sp-paren { margin:0 0 0 30% !important; }
+  .sp-dia { margin:0 16% 0 18% !important; }
+  .sp-trans { text-align:right; text-transform:uppercase; margin:10px 0 !important; }
+  .sp-center { text-align:center; }
+
+  /* ---------- photo drop ---------- */
+  .dropzone { border:1px dashed var(--border-hot); background:#0a0f0a; padding:26px 16px;
+    text-align:center; cursor:pointer; font-size:12px; color:var(--text-dim); transition:.12s; }
+  .dropzone:hover, .dropzone.over { border-color:var(--green); color:var(--text); background:#0c130c; }
+  html[data-theme="light"] .dropzone { background:#f5f6f0; }
+  html[data-theme="light"] .dropzone:hover, html[data-theme="light"] .dropzone.over { background:#eef5ee; }
+  .photo-wrap { display:flex; gap:12px; align-items:flex-start; }
+  .photo-prev { width:120px; height:120px; object-fit:cover; border:1px solid var(--border-hot); }
+  .photo-actions { display:flex; flex-direction:column; gap:6px; }
+  .card-photo { width:100%; height:120px; object-fit:cover; border:1px solid var(--border-hot);
+    margin:4px 0 10px; display:block; }
+
+  /* ---------- image prompt block ---------- */
+  .imgprompt { border:1px solid var(--border-hot); background:#0c110c; padding:12px 14px; }
+  html[data-theme="light"] .imgprompt { background:#f5f6f0; }
+  .imgprompt-area { background:#070a07 !important; line-height:1.6; }
+  html[data-theme="light"] .imgprompt-area { background:#fbfbf6 !important; }
+
+  /* ---------- copy button ---------- */
+  .copy-btn { background:#0c110c; border:1px solid var(--border-hot); color:var(--text-dim);
+    font-family:var(--mono); font-size:9px; letter-spacing:1px; text-transform:uppercase;
+    padding:3px 8px; cursor:pointer; transition:.1s; white-space:nowrap; }
+  .copy-btn:hover { color:var(--green); border-color:var(--green); }
+  .card-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:10px; }
+  .card-foot .pill { margin-top:0; }
+  html[data-theme="light"] .copy-btn { background:#f5f6f0; }
+
+  /* ---------- the clock ---------- */
+  .clock-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:14px; }
+  .clock-tile { border:1px solid var(--border-hot); background:var(--panel); padding:16px 18px; }
+  .clock-tile.failed { border-color:var(--red); }
+  .ct-head { display:flex; align-items:center; gap:9px; margin-bottom:12px; }
+  .ct-name { flex:1; font-family:var(--display); font-size:13px; color:#dff0df; letter-spacing:.5px; }
+  html[data-theme="light"] .ct-name { color:#1b201b; }
+  .ct-readout { font-family:var(--mono); font-size:34px; font-weight:bold; letter-spacing:2px; line-height:1; }
+  .r-green{ color:var(--green); } .r-amber{ color:var(--amber); } .r-red{ color:var(--red); text-shadow:0 0 12px #f8514955; }
+  .ct-sub { font-size:10px; letter-spacing:1px; text-transform:uppercase; margin-top:6px; }
+  .fuse { height:6px; background:#0a0f0a; border:1px solid var(--border-hot); margin:12px 0 10px; overflow:hidden; }
+  html[data-theme="light"] .fuse { background:#e9eae2; }
+  .fuse-fill { height:100%; transition:width .2s linear; }
+  .f-green{ background:var(--green); } .f-amber{ background:var(--amber); } .f-red{ background:var(--red); }
+  .ct-assigned { font-size:11px; color:var(--amber); letter-spacing:.5px; margin-bottom:6px; }
+  .ct-desc { font-size:11px; line-height:1.5; color:var(--text-dim); }
+
+  /* ---------- timeline ---------- */
+  .tl-track-wrap { overflow-x:auto; padding-bottom:6px; }
+  .tl-track { position:relative; height:180px; min-width:520px; margin-top:6px; }
+  .tl-axis { position:absolute; left:0; right:0; top:90px; height:2px; background:var(--border-hot); }
+  .tl-tick { position:absolute; top:84px; transform:translateX(-50%); pointer-events:none; }
+  .tl-tick .tk-line { width:1px; height:12px; background:var(--text-dim); margin:0 auto; }
+  .tl-tick .tk-label { font-size:9px; color:var(--text-dim); margin-top:3px; text-align:center;
+    letter-spacing:1px; white-space:nowrap; }
+  .tl-dot { position:absolute; top:84px; width:13px; height:13px; border-radius:50%;
+    transform:translateX(-50%); cursor:pointer; border:2px solid var(--bg); z-index:2; }
+  .tl-dot:hover { transform:translateX(-50%) scale(1.25); }
+  .tl-mlabel { position:absolute; transform:translateX(-50%); font-size:9px; color:var(--text);
+    white-space:nowrap; max-width:96px; overflow:hidden; text-overflow:ellipsis; cursor:pointer;
+    text-align:center; letter-spacing:.3px; }
+  .tl-mlabel:hover { color:var(--green); }
+  .tl-detail { border:1px solid var(--green); background:var(--panel); padding:14px 16px; margin-bottom:18px; }
+  .tl-detail-title { font-family:var(--display); font-size:14px; color:#eafaea; margin-top:3px; }
+  html[data-theme="light"] .tl-detail-title { color:#15301b; }
+
+  /* ---------- arcs board ---------- */
+  .arc-legend { display:flex; gap:6px; flex-wrap:wrap; }
+  .arcs-grid { display:grid; grid-template-columns: 180px repeat(3, 1fr); gap:1px;
+    background:var(--border); border:1px solid var(--border-hot); }
+  .arc-corner { background:#0d130d; padding:10px 12px; font-size:10px; letter-spacing:2px;
+    text-transform:uppercase; color:var(--amber); position:sticky; top:90px; z-index:5; }
+  .arc-head { background:#0d130d; padding:10px 12px; font-family:var(--display); font-size:12px;
+    letter-spacing:1px; text-transform:uppercase; color:#dff0df; position:sticky; top:90px; z-index:5; }
+  .arc-row-label { background:var(--panel); padding:12px; display:flex; gap:9px; align-items:flex-start; }
+  .arc-row-label .bar { width:4px; height:30px; flex:none; }
+  .arl-name { font-family:var(--display); font-size:13px; color:#eafaea; }
+  .arl-dom { font-size:10px; color:var(--text-dim); margin-top:2px; }
+  .arc-cell { background:var(--panel); padding:8px; min-height:74px; display:flex; flex-direction:column; gap:6px; }
+  .beat { border:1px solid var(--border-hot); background:#0c110c; padding:7px 8px; cursor:pointer; transition:.1s; }
+  .beat:hover { border-color:var(--green); }
+  .beat-stage { display:inline-block; font-size:8px; letter-spacing:1px; text-transform:uppercase;
+    padding:1px 6px; margin-bottom:4px; color:#000; }
+  .s-setup{background:#6b7d6b;} .s-catalyst{background:var(--amber);}
+  .s-midpoint{background:var(--blue);} .s-crisis{background:var(--red);} .s-resolution{background:var(--green);}
+  .beat-desc { display:block; font-size:11px; line-height:1.4; color:var(--text); }
+  .beat-add { background:none; border:1px dashed var(--border-hot); color:var(--text-dim);
+    font-family:var(--mono); font-size:10px; letter-spacing:1px; padding:5px; cursor:pointer; }
+  .beat-add:hover { color:var(--green); border-color:var(--green); }
+  @media (max-width:760px){ .arcs-grid{ grid-template-columns:120px repeat(3,1fr); } .arc-corner,.arc-head{ top:0; } }
+
+  /* ---------- audit log ---------- */
+  .edit-stamp { margin-top:9px; font-size:9px; color:var(--text-dim); letter-spacing:.5px; }
+  .audit { display:flex; flex-direction:column; }
+  .audit-row { display:grid; grid-template-columns:84px 110px 1fr; gap:14px; padding:9px 0;
+    border-bottom:1px solid var(--border); font-size:12px; align-items:baseline; }
+  .audit-row:hover { background:#0c110c; }
+  .audit-when { color:var(--text-dim); font-size:10px; letter-spacing:1px; text-transform:uppercase; }
+  .audit-who { color:var(--green); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .audit-what { color:var(--text); }
+  .audit-ent { color:var(--text-dim); }
+
+  /* ---------- modal ---------- */
+  .modal-bg { position:fixed; inset:0; background:#000000c4; z-index:200; display:flex;
+    align-items:flex-start; justify-content:center; padding:40px 20px; overflow-y:auto; }
+  .modal { width:100%; max-width:640px; border:1px solid var(--green); background:var(--panel);
+    box-shadow:0 0 60px #39d35322; }
+  .modal-head { display:flex; justify-content:space-between; align-items:center; padding:16px 20px;
+    border-bottom:1px solid var(--border-hot); background:#0d130d; }
+  .modal-head .x { background:none; border:1px solid var(--border-hot); color:var(--text-dim);
+    cursor:pointer; font-family:var(--mono); padding:4px 9px; }
+  .modal-head .x:hover { color:var(--red); border-color:var(--red); }
+  .modal-body { padding:20px; }
+  .field { margin-bottom:14px; }
+  .field label { display:block; color:var(--amber); font-size:10px; letter-spacing:1px;
+    text-transform:uppercase; margin-bottom:5px; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .saved-tag { color:var(--green); font-size:11px; }
+
+  .loading { text-align:center; padding:60px; color:var(--text-dim); letter-spacing:2px; }
+  .blinkcursor::after { content:"_"; animation:blink 1s steps(1) infinite; color:var(--green); }
+
+  /* ============================================================
+     LIGHT THEME — clean paper look, neon + CRT effects removed
+     ============================================================ */
+  html[data-theme="light"] {
+    --bg:#eef0ea; --panel:#ffffff; --border:#e4e5dd; --border-hot:#d3d5ca;
+    --green:#1f7a33; --amber:#8a5d10; --red:#c0362c; --blue:#2660c4;
+    --text:#1b201b; --text-dim:#6b736b;
+  }
+  html[data-theme="light"] body {
+    background: radial-gradient(ellipse at 50% -10%, #ffffff 0%, transparent 60%), var(--bg);
+  }
+  html[data-theme="light"] .scanline { display:none; }
+  /* kill glows */
+  html[data-theme="light"] .brand h1,
+  html[data-theme="light"] .login-box h1,
+  html[data-theme="light"] .stat .n,
+  html[data-theme="light"] .nav button.active { text-shadow:none; }
+  html[data-theme="light"] .lamp.green,
+  html[data-theme="light"] .lamp.amber,
+  html[data-theme="light"] .lamp.red,
+  html[data-theme="light"] .sdot.done,
+  html[data-theme="light"] .login-box,
+  html[data-theme="light"] .pin-dot.on,
+  html[data-theme="light"] .modal { box-shadow:none; }
+  /* surfaces that were hardcoded dark */
+  html[data-theme="light"] .topbar { background:linear-gradient(#ffffff,#f3f4ee); }
+  html[data-theme="light"] .nav { background:#f3f4ee; }
+  html[data-theme="light"] .modal-head { background:#f6f7f1; }
+  html[data-theme="light"] input[type=email],
+  html[data-theme="light"] input[type=text],
+  html[data-theme="light"] textarea,
+  html[data-theme="light"] select,
+  html[data-theme="light"] .script-area { background:#fbfbf6; }
+  html[data-theme="light"] .stat,
+  html[data-theme="light"] .char-card,
+  html[data-theme="light"] .scene-pill,
+  html[data-theme="light"] .pinkey,
+  html[data-theme="light"] .toggle,
+  html[data-theme="light"] .ctag { background:#f5f6f0; }
+  html[data-theme="light"] .btn { background:#e9f3ea; }
+  html[data-theme="light"] .btn:hover { background:var(--green); color:#fff; }
+  html[data-theme="light"] .msg { background:#eef5ee; }
+  html[data-theme="light"] .msg.err { background:#fbeceb; color:#8f261d; }
+  html[data-theme="light"] .fountain-help { background:#fbf6ea; }
+  html[data-theme="light"] .fountain-help code { background:#eef0e6; }
+  html[data-theme="light"] .audit-row:hover { background:#f6f7f1; }
+
+  /* ---------- antagonists ---------- */
+  .ant-force-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; }
+  .ant-card { border:1px solid; background:#0c110c; padding:16px; }
+  html[data-theme="light"] .ant-card { background:#f5f6f0; }
+  .ant-card-head { display:flex; gap:10px; align-items:flex-start; padding-bottom:12px; margin-bottom:12px; border-bottom:1px solid var(--border); }
+  .ant-id { font-size:9px; color:var(--text-dim); letter-spacing:1px; white-space:nowrap; padding-top:3px; }
+  .ant-name { font-family:var(--display); font-size:15px; letter-spacing:.5px; }
+  .ant-fullname { font-size:10px; color:var(--text-dim); margin-top:2px; }
+  .ant-type { font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--text-dim); margin-bottom:12px; }
+  .ant-kv { display:flex; gap:8px; align-items:baseline; margin-bottom:6px; font-size:11px; flex-wrap:wrap; }
+  .ant-kv-label { color:var(--amber); font-size:9px; letter-spacing:1px; text-transform:uppercase; white-space:nowrap; }
+  .ant-kv-val { color:var(--text); font-style:italic; }
+  .ant-desc { font-size:12px; line-height:1.6; color:var(--text-dim); margin:0 0 10px; }
+  .ant-section-head { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--amber); margin:8px 0 4px; }
+
+  /* cascade timer */
+  .cascade-primary { border:1px solid var(--red); background:#1a0d0d; padding:16px 18px; margin-bottom:16px; }
+  html[data-theme="light"] .cascade-primary { background:#fff0f0; }
+  .cascade-label { font-size:9px; letter-spacing:3px; text-transform:uppercase; color:var(--red); margin-bottom:6px; }
+  .cascade-name { font-family:var(--display); font-size:18px; color:#eafaea; margin-bottom:4px; }
+  html[data-theme="light"] .cascade-name { color:#15201b; }
+  .cascade-hours { font-family:var(--mono); font-size:38px; color:var(--red); text-shadow:0 0 12px #f8514955; letter-spacing:2px; margin:8px 0; line-height:1; }
+  html[data-theme="light"] .cascade-hours { text-shadow:none; }
+  .cascade-sub { font-size:12px; color:var(--text-dim); line-height:1.5; margin-top:8px; }
+  .cascade-queue { display:flex; flex-direction:column; gap:6px; }
+  .cascade-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border); background:#0c110c; }
+  html[data-theme="light"] .cascade-row { background:#f5f6f0; }
+  .cascade-row-active { border-color:var(--red) !important; background:#1a0d0d !important; }
+  html[data-theme="light"] .cascade-row-active { background:#fff0f0 !important; }
+
+  /* combined example */
+  .ant-example { border:1px solid var(--border-hot); background:#0c110c; padding:16px 18px; }
+  html[data-theme="light"] .ant-example { background:#f5f6f0; }
+  .ant-example-row { display:flex; gap:14px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--border); font-size:12px; line-height:1.5; }
+  .ant-example-row:first-child { padding-top:0; }
+  .ant-ex-force { font-family:var(--display); font-size:10px; letter-spacing:.5px; white-space:nowrap; padding-top:2px; min-width:110px; }
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+const CFG = window.LS_CONFIG;
+const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+
+const FACTION_ORDER = ["Legacy Team","Young Engineers","The Sovereigns","The SRU"];
+
+/* ---------- audit helpers ---------- */
+function shortName(email){ return (email||"").split("@")[0] || "someone"; }
+function timeAgo(iso){
+  if(!iso) return "";
+  const s=Math.floor((Date.now()-new Date(iso).getTime())/1000);
+  if(s<60) return "just now";
+  const m=Math.floor(s/60); if(m<60) return m+"m ago";
+  const h=Math.floor(m/60); if(h<24) return h+"h ago";
+  const d=Math.floor(h/24); if(d<7) return d+"d ago";
+  return new Date(iso).toLocaleDateString();
+}
+// notes arrive newest-first, so the first hit per entity is the latest edit
+function lastEditMap(notes){
+  const m={}; (notes||[]).forEach(n=>{ if(!m[n.entity_id]) m[n.entity_id]=n; }); return m;
+}
+// fire-and-forget audit entry
+function logChange(entity_type, entity_id, author, body){
+  return sb.from("LS_notes").insert({ entity_type, entity_id, author, body });
+}
+
+/* ---------- copy-to-clipboard ---------- */
+async function copyText(text){
+  try { await navigator.clipboard.writeText(text||""); return true; }
+  catch(_){
+    try { const ta=document.createElement("textarea"); ta.value=text||"";
+      ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta);
+      ta.select(); document.execCommand("copy"); ta.remove(); return true; }
+    catch(e){ return false; }
+  }
+}
+function CopyButton({ text, label="Copy", title="Copy to clipboard" }){
+  const [done,setDone] = useState(false);
+  const onClick = async (e)=>{ e.stopPropagation();
+    const ok = await copyText(typeof text==="function"?text():text);
+    if (ok){ setDone(true); setTimeout(()=>setDone(false),1200); }
+  };
+  return <button type="button" className="copy-btn" title={title} onClick={onClick}>{done?"✓ Copied":label}</button>;
+}
+// formatted character sheet for clipboard
+function characterSheet(c){
+  const L=[];
+  L.push(`${c.name}${c.full_name?` — ${c.full_name}`:""}${c.age?`, ${c.age}`:""}`);
+  if (c.knowledge_domain) L.push(`Knowledge: ${c.knowledge_domain}`);
+  if (c.casting_ideas)    L.push(`Casting: ${c.casting_ideas}`);
+  if (c.dob)              L.push(`DOB: ${c.dob}`);
+  if (c.birthplace)       L.push(`Birthplace: ${c.birthplace}`);
+  if (c.description)      L.push("", c.description);
+  return L.join("\n");
+}
+const PHOTO_BUCKET = "ls-photos";
+function PhotoDrop({ value, characterId, onChange }){
+  const [busy,setBusy] = useState(false);
+  const [over,setOver] = useState(false);
+  const [err,setErr] = useState("");
+  const inputRef = React.useRef();
+
+  const upload = async (file)=>{
+    if (!file) return;
+    if (!file.type.startsWith("image/")){ setErr("That's not an image file."); return; }
+    if (file.size > 10*1024*1024){ setErr("Image is over 10MB — try a smaller one."); return; }
+    setErr(""); setBusy(true);
+    const ext = (file.name.split(".").pop()||"png").toLowerCase();
+    const path = `${characterId}/${Date.now()}.${ext}`;
+    const { error } = await sb.storage.from(PHOTO_BUCKET).upload(path, file, { upsert:true, contentType:file.type });
+    if (error){ setBusy(false); setErr("Upload failed: "+error.message); return; }
+    const { data } = sb.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+    setBusy(false);
+    onChange(data.publicUrl);
+  };
+
+  const onDrop = (e)=>{ e.preventDefault(); setOver(false);
+    const f = e.dataTransfer.files && e.dataTransfer.files[0]; upload(f); };
+
+  return (
+    <div className="field">
+      <label>Photo idea — drag & drop or click to upload</label>
+      {value ? (
+        <div className="photo-wrap">
+          <img src={value} alt="character" className="photo-prev" />
+          <div className="photo-actions">
+            <button className="copy-btn" onClick={()=>inputRef.current.click()} disabled={busy}>{busy?"Uploading…":"Replace"}</button>
+            <button className="copy-btn" onClick={()=>onChange("")} disabled={busy}>Remove</button>
+          </div>
+        </div>
+      ) : (
+        <div className={"dropzone"+(over?" over":"")}
+          onClick={()=>inputRef.current.click()}
+          onDragOver={e=>{e.preventDefault(); setOver(true);}}
+          onDragLeave={()=>setOver(false)} onDrop={onDrop}>
+          {busy ? "Uploading…" : <><b>Drop an image here</b><br/><span className="dim">or click to browse · PNG/JPG/WebP/GIF · up to 10MB</span></>}
+        </div>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" style={{display:"none"}}
+        onChange={e=>upload(e.target.files[0])} />
+      {err && <div className="msg err" style={{marginTop:8}}>{err}</div>}
+    </div>
+  );
+}
+
+const ROLE_LABEL = { legacy_team:"Legacy Team specialist", young_engineer:"Young engineer", antagonist:"Antagonist" };
+// full bio formatted as an image-generation prompt (paste into ChatGPT etc.)
+function imagePrompt(c){
+  const name = `${c.name}${c.full_name && c.full_name!==c.name ? ` (${c.full_name})` : ""}`;
+  const L=[];
+  let opener = `Character portrait of ${name}`;
+  if (c.age) opener += `, age ${c.age}`;
+  if (c.role && ROLE_LABEL[c.role]) opener += ` — ${ROLE_LABEL[c.role]}`;
+  L.push(opener + ".");
+  if (c.birthplace)       L.push(`Born in ${c.birthplace}.`);
+  if (c.knowledge_domain) L.push(`Background: ${c.knowledge_domain}.`);
+  if (c.casting_ideas)    L.push(`Casting / visual reference: ${c.casting_ideas}.`);
+  if (c.description)      L.push("", c.description);
+  L.push("", "Photorealistic, cinematic lighting, neutral background. From the film LEGACY SYSTEMS.");
+  return L.join("\n");
+}
+
+/* ============================ LOGIN ============================ */
+function Login() {
+  const [step, setStep] = useState("email"); // email | pin
+  const [email, setEmail] = useState("");
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const PIN_LEN = 4;
+
+  const nextFromEmail = () => {
+    const e = email.trim().toLowerCase();
+    if (!e) return;
+    if (!CFG.WHITELIST.includes(e)) {
+      setErr("That email isn't on the writers' room list.");
+      return;
+    }
+    setErr(""); setEmail(e); setStep("pin");
+  };
+
+  const submitPin = useCallback(async (code) => {
+    setBusy(true); setErr("");
+    const { error } = await sb.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password: code + CFG.PIN_SALT
+    });
+    if (error) {
+      setErr("Wrong PIN. Try again.");
+      setPin(""); setBusy(false);
+    }
+    // success: onAuthStateChange in App swaps the view
+  }, [email]);
+
+  // auto-submit when PIN reaches full length
+  const press = (d) => {
+    if (busy) return;
+    setErr("");
+    setPin(prev => {
+      if (prev.length >= PIN_LEN) return prev;
+      const next = prev + d;
+      if (next.length === PIN_LEN) submitPin(next);
+      return next;
+    });
+  };
+  const back = () => { if (!busy) setPin(p => p.slice(0, -1)); };
+
+  // physical keyboard support on the PIN step
+  useEffect(() => {
+    if (step !== "pin") return;
+    const onKey = (ev) => {
+      if (ev.key >= "0" && ev.key <= "9") press(ev.key);
+      else if (ev.key === "Backspace") back();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [step, busy]);
+
+  return (
+    <div className="login-shell">
+      <div className="login-box">
+        <h1>Legacy Systems</h1>
+        <div className="tag">Writers' Room // Restricted</div>
+
+        {step === "email" ? (
+          <>
+            <div className="label" style={{marginBottom:6}}>Authorized email</div>
+            <input type="email" value={email} placeholder="you@email.com"
+              onChange={e=>setEmail(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&nextFromEmail()} autoFocus />
+            <button className="btn" onClick={nextFromEmail}>Continue</button>
+            {err && <div className="msg err">{err}</div>}
+            <div className="dim" style={{marginTop:22, fontSize:11}}>
+              Enter your email, then your PIN. No password to remember.
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="label" style={{marginBottom:10}}>
+              Enter PIN — <span className="dim" style={{textTransform:"none",letterSpacing:0}}>{email}</span>
+            </div>
+            <div className="pin-dots">
+              {Array.from({length:PIN_LEN}).map((_,i)=>(
+                <span key={i} className={"pin-dot"+(i<pin.length?" on":"")}></span>
+              ))}
+            </div>
+            <div className="pinpad">
+              {["1","2","3","4","5","6","7","8","9"].map(d=>(
+                <button key={d} className="pinkey" onClick={()=>press(d)} disabled={busy}>{d}</button>
+              ))}
+              <button className="pinkey ghost" onClick={()=>setStep("email")} disabled={busy}>←</button>
+              <button className="pinkey" onClick={()=>press("0")} disabled={busy}>0</button>
+              <button className="pinkey ghost" onClick={back} disabled={busy}>⌫</button>
+            </div>
+            {busy && <div className="msg">Verifying…</div>}
+            {err && <div className="msg err">{err}</div>}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ============================ OVERVIEW ============================ */
+function Overview({ data }) {
+  const { characters, systems, scenes, themes } = data;
+  const legacy = characters.filter(c=>c.role==="legacy_team").length;
+  const young  = characters.filter(c=>c.role==="young_engineer").length;
+  const antag  = characters.filter(c=>c.role==="antagonist").length;
+  const done   = scenes.filter(s=>s.status==="done").length;
+
+  return (
+    <>
+      <div className="panel">
+        <h2>Logline</h2>
+        <p className="logline">
+          When a catastrophic solar storm destroys the digital infrastructure of modern
+          civilization, a group of retired specialists discover they are the last living
+          backup of humanity's operating manual.
+        </p>
+      </div>
+
+      <div className="stat-row" style={{marginBottom:18}}>
+        <div className="stat"><div className="n">{legacy}</div><div className="k">Legacy Team</div></div>
+        <div className="stat"><div className="n">{young}</div><div className="k">Young Engineers</div></div>
+        <div className="stat"><div className="n">{antag}</div><div className="k">Antagonists</div></div>
+        <div className="stat"><div className="n">{scenes.length}</div><div className="k">Scenes</div></div>
+        <div className="stat"><div className="n">{done}</div><div className="k">Scenes Done</div></div>
+      </div>
+
+      <div className="grid2">
+        <div className="panel" style={{margin:0}}>
+          <h2>Tone &amp; Comps</h2>
+          <dl className="kv">
+            <dt>Genre</dt><dd>Hard thriller. Apollo 13 DNA. Competence under pressure, not action.</dd>
+            <dt>Comps</dt><dd>Apollo 13 · The Martian · Hidden Figures</dd>
+            <dt>Not</dt><dd className="dim">RED · Space Cowboys · nostalgia · generational war</dd>
+            <dt>The Twist</dt><dd>The more modern the system, the faster it fails.</dd>
+          </dl>
+        </div>
+
+        <div className="panel" style={{margin:0}}>
+          <h2>The Clock — System Status</h2>
+          {systems.map(s=>(
+            <div className="clock-row" key={s.id}>
+              <span className={"lamp "+(s.status||"green")}></span>
+              <div style={{flex:1}}>
+                <div style={{color:"#dff0df"}}>{s.name}</div>
+                <div className="dim" style={{fontSize:11}}>{s.countdown_hours}h window</div>
+              </div>
+            </div>
+          ))}
+          {systems.length===0 && <div className="dim">No systems seeded yet.</div>}
+        </div>
+      </div>
+
+      <div className="panel">
+        <h2>Themes</h2>
+        <dl className="kv">
+          {themes.map(t=>(
+            <React.Fragment key={t.id}>
+              <dt>{t.title}</dt><dd className="dim">{t.description}</dd>
+            </React.Fragment>
+          ))}
+        </dl>
+      </div>
+    </>
+  );
+}
+
+/* ============================ CHARACTERS ============================ */
+function Characters({ data, reload, user }) {
+  const [editing, setEditing] = useState(null);
+  const factions = data.factions;
+  const led = lastEditMap(data.notes);
+  const byFaction = (fname) => {
+    const f = factions.find(x=>x.name===fname);
+    return data.characters.filter(c=>c.faction_id === (f && f.id));
+  };
+
+  return (
+    <>
+      <div className="panel" style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div><span className="label">Cast</span> &nbsp;
+          <span className="dim">{data.characters.length} characters · click any card to edit</span></div>
+      </div>
+
+      {FACTION_ORDER.map(fname=>{
+        const f = factions.find(x=>x.name===fname);
+        const list = byFaction(fname);
+        if (!f) return null;
+        return (
+          <div key={fname}>
+            <div className="faction-head">
+              <span className="bar" style={{background:f.color||"#39d353"}}></span>
+              <h3 style={{color:f.color||"#dff0df"}}>{fname}</h3>
+              <span className="ct">{list.length}</span>
+            </div>
+            <div className="card-grid">
+              {list.map(c=>(
+                <div className="char-card" key={c.id} onClick={()=>setEditing(c)}>
+                  <span className="age">{c.age}</span>
+                  {c.photo_url && <img src={c.photo_url} alt="" className="card-photo" />}
+                  <div className="nm">{c.name}</div>
+                  <div className="fn">{c.full_name}</div>
+                  {c.knowledge_domain && <div className="dom">{c.knowledge_domain}</div>}
+                  <div className="card-foot">
+                    <span className="pill">{c.status}</span>
+                    <CopyButton text={()=>characterSheet(c)} label="Copy" title="Copy character sheet" />
+                  </div>
+                  {led[c.id] && <div className="edit-stamp">✎ {shortName(led[c.id].author)} · {timeAgo(led[c.id].created_at)}</div>}
+                </div>
+              ))}
+              {list.length===0 && <div className="dim">No characters in this faction.</div>}
+            </div>
+          </div>
+        );
+      })}
+
+      {editing && (
+        <CharacterModal character={editing} user={user}
+          onClose={()=>setEditing(null)}
+          onSaved={()=>{ setEditing(null); reload(); }} />
+      )}
+    </>
+  );
+}
+
+function CharacterModal({ character, onClose, onSaved, user }) {
+  const [f, setF] = useState({ ...character });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const set = (k,v)=> setF(s=>({...s,[k]:v}));
+
+  const save = async () => {
+    setSaving(true); setSaved(false);
+    const patch = {
+      name:f.name, full_name:f.full_name, age:f.age?parseInt(f.age):null,
+      dob:f.dob, birthplace:f.birthplace, knowledge_domain:f.knowledge_domain,
+      casting_ideas:f.casting_ideas, description:f.description, status:f.status,
+      photo_url:f.photo_url
+    };
+    const { error } = await sb.from("LS_characters").update(patch).eq("id", f.id);
+    if (!error) {
+      sb.from("LS_notes").insert({
+        entity_type:"character", entity_id:f.id,
+        author: user.email, body:`edited ${f.name}`
+      });
+      setSaved(true);
+      setTimeout(onSaved, 500);
+    } else { alert("Save failed: "+error.message); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div className="modal-head">
+          <div className="label">Edit Character</div>
+          <button className="x" onClick={onClose}>ESC ✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="row2">
+            <div className="field"><label>Name</label>
+              <input value={f.name||""} onChange={e=>set("name",e.target.value)} /></div>
+            <div className="field"><label>Age</label>
+              <input value={f.age||""} onChange={e=>set("age",e.target.value)} /></div>
+          </div>
+          <div className="field"><label>Full name</label>
+            <input value={f.full_name||""} onChange={e=>set("full_name",e.target.value)} /></div>
+          <div className="row2">
+            <div className="field"><label>DOB</label>
+              <input value={f.dob||""} onChange={e=>set("dob",e.target.value)} placeholder="e.g. 1956-03-12" /></div>
+            <div className="field"><label>Birthplace</label>
+              <input value={f.birthplace||""} onChange={e=>set("birthplace",e.target.value)} /></div>
+          </div>
+          <div className="field"><label>Knowledge domain</label>
+            <input value={f.knowledge_domain||""} onChange={e=>set("knowledge_domain",e.target.value)} /></div>
+          <div className="field"><label>Casting ideas</label>
+            <input value={f.casting_ideas||""} onChange={e=>set("casting_ideas",e.target.value)} /></div>
+          <div className="field"><label>Status</label>
+            <select value={f.status||"idea"} onChange={e=>set("status",e.target.value)}>
+              <option value="idea">idea</option>
+              <option value="developing">developing</option>
+              <option value="locked">locked</option>
+            </select></div>
+          <PhotoDrop value={f.photo_url||""} characterId={f.id} onChange={url=>set("photo_url",url)} />
+          <div className="field">
+            <label style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span>Description / Bio</span>
+              <CopyButton text={()=>f.description||""} label="Copy bio" />
+            </label>
+            <textarea rows={7} value={f.description||""} onChange={e=>set("description",e.target.value)} /></div>
+
+          <div className="field imgprompt">
+            <label style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span>Image prompt — paste into ChatGPT to render this character</span>
+              <CopyButton text={()=>imagePrompt(f)} label="Copy prompt" title="Copy image prompt" />
+            </label>
+            <textarea className="imgprompt-area" rows={8} readOnly value={imagePrompt(f)}
+              onFocus={e=>e.target.select()} />
+            <div className="dim" style={{fontSize:10,marginTop:5}}>Auto-built from the fields above (casting, birthplace, age, bio). Updates as you edit — save first to keep changes.</div>
+          </div>
+
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <button className="btn" style={{width:"auto"}} disabled={saving} onClick={save}>
+              {saving?"Saving…":"Save changes"}</button>
+            <CopyButton text={()=>characterSheet(f)} label="Copy full sheet" />
+            {saved && <span className="saved-tag">✓ saved &amp; logged</span>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ SCENES ============================ */
+const ACTS = ["I","II","III"];
+const SCENE_STATUS = ["idea","outlined","drafted","done"];
+
+/* ---------- Fountain engine (subset) ---------- */
+const SCENE_RE = /^(int|ext|est|int\.?\/ext|i\/e)[\.\/ ]/i;
+function parseFountain(text){
+  const lines = (text||"").replace(/\r/g,"").split("\n");
+  const els = [];
+  const blank = s => !s || s.trim()==="";
+  for (let i=0;i<lines.length;i++){
+    const t = lines[i].trim();
+    if (blank(t)) continue;
+    // forced/auto scene heading
+    if (t.startsWith(".") && !t.startsWith("..")) { els.push({type:"scene",text:t.slice(1).trim().toUpperCase()}); continue; }
+    if (SCENE_RE.test(t)) { els.push({type:"scene",text:t.toUpperCase()}); continue; }
+    // centered  >text<
+    if (t.startsWith(">") && t.endsWith("<")) { els.push({type:"centered",text:t.slice(1,-1).trim()}); continue; }
+    // transition
+    if (t.startsWith(">")) { els.push({type:"transition",text:t.slice(1).trim().toUpperCase()}); continue; }
+    if (/[A-Z0-9'’\.\- ]+TO:$/.test(t) && t===t.toUpperCase()) { els.push({type:"transition",text:t}); continue; }
+    // character cue: UPPERCASE line, blank before, dialogue after  (or forced @Name)
+    const forced = t.startsWith("@");
+    const cue = forced ? t.slice(1).trim() : t;
+    const prevBlank = i===0 || blank(lines[i-1]);
+    const nextNonBlank = i+1<lines.length && !blank(lines[i+1]);
+    const looksCharacter = forced ||
+      (prevBlank && nextNonBlank && cue===cue.toUpperCase() && /[A-Z]/.test(cue) && !cue.endsWith(":"));
+    if (looksCharacter){
+      els.push({type:"character",text:cue.toUpperCase()});
+      i++;
+      while (i<lines.length && !blank(lines[i])){
+        const dt = lines[i].trim();
+        if (dt.startsWith("(") && dt.endsWith(")")) els.push({type:"parenthetical",text:dt});
+        else els.push({type:"dialogue",text:dt});
+        i++;
+      }
+      continue;
+    }
+    els.push({type:"action",text:t});
+  }
+  return els;
+}
+
+function orderScenes(scenes){
+  return [...scenes].sort((a,b)=>{
+    const ai=ACTS.indexOf(a.act||"I"), bi=ACTS.indexOf(b.act||"I");
+    return (ai-bi) || ((a.sort_order||0)-(b.sort_order||0)) || (a.title||"").localeCompare(b.title||"");
+  });
+}
+
+const SCRIPT_TITLE = "LEGACY SYSTEMS";
+const SCRIPT_BYLINE = "Jimmy Cannon & Ryan Ross";
+
+function compileFountain(scenes){
+  let out = `Title: ${SCRIPT_TITLE}\nCredit: Written by\nAuthor: ${SCRIPT_BYLINE}\nDraft date: ${new Date().toLocaleDateString()}\n\n`;
+  orderScenes(scenes).forEach(s=>{ out += (s.content||"").trim() + "\n\n"; });
+  return out;
+}
+
+function compileFDX(scenes){
+  const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const typeMap = {scene:"Scene Heading",action:"Action",character:"Character",
+    dialogue:"Dialogue",parenthetical:"Parenthetical",transition:"Transition",centered:"Action"};
+  let body="";
+  orderScenes(scenes).forEach(s=>{
+    parseFountain(s.content).forEach(e=>{
+      body += `    <Paragraph Type="${typeMap[e.type]||"Action"}">\n      <Text>${esc(e.text)}</Text>\n    </Paragraph>\n`;
+    });
+  });
+  return `<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<FinalDraft DocumentType="Script" Template="No" Version="1">\n  <Content>\n${body}  </Content>\n</FinalDraft>\n`;
+}
+
+function download(filename, text, mime){
+  const blob = new Blob([text], {type:mime||"text/plain;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href=url; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+}
+
+function screenplayPrintDoc(scenes){
+  const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const cls = {scene:"scene",action:"action",character:"character",
+    parenthetical:"parenthetical",dialogue:"dialogue",transition:"transition",centered:"centered"};
+  let bodyHTML="";
+  orderScenes(scenes).forEach(s=>{
+    parseFountain(s.content).forEach(e=>{ bodyHTML += `<p class="${cls[e.type]||"action"}">${esc(e.text)||"&nbsp;"}</p>`; });
+  });
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${SCRIPT_TITLE}</title><style>
+    @page { size:letter; margin:1in 1in 1in 1.5in; }
+    body { font:12pt "Courier New",Courier,monospace; color:#000; }
+    p { margin:0 0 12pt; white-space:pre-wrap; }
+    .title-page { height:8.5in; display:flex; flex-direction:column; justify-content:center;
+      align-items:center; text-align:center; page-break-after:always; }
+    .title-page h1 { font-size:12pt; font-weight:bold; text-transform:uppercase; letter-spacing:1px; }
+    .scene { font-weight:bold; text-transform:uppercase; margin-top:18pt; }
+    .character { margin:12pt 0 0 2.2in; text-transform:uppercase; }
+    .parenthetical { margin:0 0 0 1.6in; }
+    .dialogue { margin:0 1.5in 0 1in; }
+    .transition { text-align:right; text-transform:uppercase; }
+    .centered { text-align:center; }
+  </style></head><body>
+  <div class="title-page"><h1>${SCRIPT_TITLE}</h1><div><br><br>Written by<br><br>${SCRIPT_BYLINE}</div></div>
+  ${bodyHTML}
+  </body></html>`;
+}
+
+function printScript(scenes){
+  const w = window.open("", "_blank");
+  if (!w){ alert("Allow pop-ups for this site to export the PDF."); return; }
+  w.document.write(screenplayPrintDoc(scenes));
+  w.document.close(); w.focus();
+  setTimeout(()=>w.print(), 400);
+}
+
+function Screenplay({ text }){
+  const els = parseFountain(text);
+  if (!els.length) return <div className="dim" style={{padding:20}}>Nothing to preview yet — write some lines.</div>;
+  const cls = {scene:"sp-scene",action:"sp-action",character:"sp-char",
+    parenthetical:"sp-paren",dialogue:"sp-dia",transition:"sp-trans",centered:"sp-center"};
+  return (
+    <div className="screenplay">
+      {els.map((e,i)=><p key={i} className={cls[e.type]}>{e.text}</p>)}
+    </div>
+  );
+}
+
+function Scenes({ data, reload, user }) {
+  const scenes = data.scenes;
+  const [selId, setSelId] = useState(scenes[0] ? scenes[0].id : null);
+
+  // keep a valid selection as the list changes
+  useEffect(()=>{
+    if (!scenes.find(s=>s.id===selId)) setSelId(scenes[0] ? scenes[0].id : null);
+  }, [scenes, selId]);
+
+  const selected = scenes.find(s=>s.id===selId) || null;
+
+  const led = lastEditMap(data.notes);
+
+  const newScene = async () => {
+    const { data:rows, error } = await sb.from("LS_scenes")
+      .insert({ title:"Untitled scene", act:"I", status:"idea", content:"" })
+      .select();
+    if (error) { alert("Couldn't create scene: "+error.message); return; }
+    if (rows && rows[0]) await logChange("scene", rows[0].id, user.email, "created scene");
+    await reload();
+    if (rows && rows[0]) setSelId(rows[0].id);
+  };
+
+  const grouped = ACTS.map(a=>({ act:a, list:scenes.filter(s=>(s.act||"I")===a) }))
+    .concat([{ act:"—", list:scenes.filter(s=>!ACTS.includes(s.act||"I")) }])
+    .filter(g=>g.list.length>0);
+
+  return (
+    <>
+    <div className="export-bar">
+      <span className="label">Export full script</span>
+      <button className="btn sm" onClick={()=>download("Legacy_Systems.fountain", compileFountain(scenes), "text/plain")}>.fountain</button>
+      <button className="btn sm" onClick={()=>download("Legacy_Systems.fdx", compileFDX(scenes), "application/xml")}>Final Draft (.fdx)</button>
+      <button className="btn sm" onClick={()=>printScript(scenes)}>Print / PDF</button>
+      <span className="dim" style={{fontSize:11}}>compiles all {scenes.length} scenes in act order</span>
+    </div>
+    <div className="scenes-wrap">
+      <div className="scene-rail">
+        <button className="btn" style={{marginTop:0,marginBottom:14}} onClick={newScene}>+ New scene</button>
+        {grouped.map(g=>(
+          <div key={g.act} style={{marginBottom:14}}>
+            <div className="rail-act">Act {g.act} · {g.list.length}</div>
+            {g.list.map(s=>(
+              <div key={s.id}
+                className={"scene-pill"+(s.id===selId?" active":"")}
+                onClick={()=>setSelId(s.id)}>
+                <div className="scene-pill-t">{s.title||"Untitled"}</div>
+                <span className={"sdot "+s.status}></span>
+                <span className="scene-pill-s">{s.status}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+        {scenes.length===0 && <div className="dim">No scenes yet. Create one.</div>}
+      </div>
+
+      <div className="scene-editor">
+        {selected
+          ? <SceneEditor key={selected.id} scene={selected} characters={data.characters}
+              user={user} reload={reload} onDeleted={reload} lastEdit={led[selected.id]} />
+          : <div className="dim" style={{padding:40,textAlign:"center"}}>Select or create a scene to start writing.</div>}
+      </div>
+    </div>
+    </>
+  );
+}
+
+function SceneEditor({ scene, characters, user, reload, onDeleted, lastEdit }) {
+  const [draft, setDraft] = useState({ ...scene });
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState(null);
+  const [mode, setMode] = useState("write"); // write | preview
+  const [showHelp, setShowHelp] = useState(false);
+  const set = (k,v)=>{ setDraft(d=>({...d,[k]:v})); setDirty(true); };
+
+  const charIds = draft.character_ids || [];
+  const toggleChar = (id)=>{
+    const next = charIds.includes(id) ? charIds.filter(x=>x!==id) : [...charIds, id];
+    set("character_ids", next);
+  };
+
+  const save = useCallback(async ()=>{
+    setSaving(true);
+    const patch = {
+      title:draft.title, act:draft.act, status:draft.status,
+      content:draft.content, character_ids:draft.character_ids||[]
+    };
+    const { error } = await sb.from("LS_scenes").update(patch).eq("id", draft.id);
+    setSaving(false);
+    if (error) { alert("Save failed: "+error.message); return; }
+    sb.from("LS_notes").insert({ entity_type:"scene", entity_id:draft.id,
+      author:user.email, body:`edited "${draft.title}"` });
+    setDirty(false); setSavedAt(new Date());
+    reload();
+  }, [draft, user]);
+
+  // Cmd/Ctrl+S to save
+  useEffect(()=>{
+    const onKey = (e)=>{
+      if ((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==="s") { e.preventDefault(); if (dirty) save(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return ()=>window.removeEventListener("keydown", onKey);
+  }, [dirty, save]);
+
+  // autosave on unmount (switching scenes / leaving) if dirty
+  const dirtyRef = React.useRef(dirty); dirtyRef.current = dirty;
+  const saveRef = React.useRef(save); saveRef.current = save;
+  useEffect(()=>()=>{ if (dirtyRef.current) saveRef.current(); }, []);
+
+  const del = async ()=>{
+    if (!confirm(`Delete "${draft.title}"? This can't be undone.`)) return;
+    const { error } = await sb.from("LS_scenes").delete().eq("id", draft.id);
+    if (error) { alert("Delete failed: "+error.message); return; }
+    await logChange("scene", draft.id, user.email, `deleted "${draft.title}"`);
+    onDeleted();
+  };
+
+  return (
+    <>
+      <div className="editor-bar">
+        <input className="scene-title" value={draft.title||""}
+          onChange={e=>set("title",e.target.value)} placeholder="Scene title" />
+        <div className="editor-bar-right">
+          <select value={draft.act||"I"} onChange={e=>set("act",e.target.value)}>
+            {ACTS.map(a=><option key={a} value={a}>Act {a}</option>)}
+          </select>
+          <select value={draft.status||"idea"} onChange={e=>set("status",e.target.value)}>
+            {SCENE_STATUS.map(s=><option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="char-tags">
+        {characters.map(c=>(
+          <button key={c.id}
+            className={"ctag"+(charIds.includes(c.id)?" on":"")}
+            onClick={()=>toggleChar(c.id)}>{c.name}</button>
+        ))}
+      </div>
+
+      <div className="sp-toolbar">
+        <button className={"toggle"+(mode==="write"?" on":"")} onClick={()=>setMode("write")}>Write</button>
+        <button className={"toggle"+(mode==="preview"?" on":"")} onClick={()=>setMode("preview")}>Preview</button>
+        <CopyButton text={()=>draft.content||""} label="Copy scene" title="Copy scene text" />
+        <button className="toggle" onClick={()=>setShowHelp(h=>!h)} style={{marginLeft:"auto"}}>
+          {showHelp?"Hide format help":"Format help"}</button>
+      </div>
+      {showHelp && (
+        <div className="fountain-help">
+          <b>Fountain quick rules</b> — write naturally, just follow these:
+          <ul>
+            <li><b>Scene heading:</b> start the line with <code>INT.</code> or <code>EXT.</code> in CAPS — <code>INT. RAIL DISPATCH - NIGHT</code></li>
+            <li><b>Character:</b> put the name in CAPS on its own line, dialogue on the line right below. No quotation marks.</li>
+            <li><b>Parenthetical:</b> <code>(quietly)</code> on its own line between the name and the line.</li>
+            <li><b>Action:</b> just write it normally — anything that isn't the above.</li>
+            <li><b>Transition:</b> a CAPS line ending in <code>TO:</code> — <code>CUT TO:</code></li>
+          </ul>
+          Blank line between blocks. Preview shows how it'll format; Export turns it into a real script.
+        </div>
+      )}
+
+      {mode==="write"
+        ? <textarea className="script-area" value={draft.content||""}
+            onChange={e=>set("content",e.target.value)}
+            placeholder={"INT. RAIL DISPATCH CENTER - NIGHT\n\nRuth walks in and picks up a marker.\n\nRUTH\nYou still have the boards?"} />
+        : <Screenplay text={draft.content||""} />}
+
+      <div className="editor-foot">
+        <button className="btn" style={{width:"auto",marginTop:0}} disabled={!dirty||saving} onClick={save}>
+          {saving ? "Saving…" : dirty ? "Save (⌘S)" : "Saved"}
+        </button>
+        {savedAt && !dirty && <span className="saved-tag">✓ saved {savedAt.toLocaleTimeString()}</span>}
+        {!savedAt && !dirty && lastEdit && <span className="dim" style={{fontSize:11}}>last edit: {shortName(lastEdit.author)} · {timeAgo(lastEdit.created_at)}</span>}
+        {dirty && <span className="dim" style={{fontSize:11}}>unsaved changes — autosaves when you switch scenes</span>}
+        <button className="del-btn" onClick={del}>Delete scene</button>
+      </div>
+    </>
+  );
+}
+
+/* ============================ ARCS ============================ */
+const ARC_STAGES = ["setup","catalyst","midpoint","crisis","resolution"];
+
+function Arcs({ data, reload, user }) {
+  const [editing, setEditing] = useState(null); // {beat} | {newFor:{character_id,act}}
+  const chars = [...data.characters].sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  const factionColor = id => { const f=data.factions.find(x=>x.id===id); return (f&&f.color)||"#39d353"; };
+  const beatsFor = (cid,act)=> (data.arcs||[])
+    .filter(a=>a.character_id===cid && (a.act||"I")===act)
+    .sort((x,y)=>(x.sort_order||0)-(y.sort_order||0));
+
+  return (
+    <>
+      <div className="panel" style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+        <div><span className="label">Character Arcs</span> &nbsp;
+          <span className="dim">acts across the top, characters down the side — click a cell to add a beat</span></div>
+        <div className="arc-legend">
+          {ARC_STAGES.map(s=><span key={s} className={"beat-stage s-"+s}>{s}</span>)}
+        </div>
+      </div>
+
+      <div className="arcs-grid">
+        <div className="arc-corner">Character</div>
+        {ACTS.map(a=><div className="arc-head" key={a}>Act {a}</div>)}
+
+        {chars.map(c=>(
+          <React.Fragment key={c.id}>
+            <div className="arc-row-label">
+              <span className="bar" style={{background:factionColor(c.faction_id)}}></span>
+              <div>
+                <div className="arl-name">{c.name}</div>
+                {c.knowledge_domain && <div className="arl-dom">{c.knowledge_domain}</div>}
+              </div>
+            </div>
+            {ACTS.map(a=>(
+              <div className="arc-cell" key={a}>
+                {beatsFor(c.id,a).map(b=>(
+                  <div className="beat" key={b.id} onClick={()=>setEditing({beat:b})}>
+                    <span className={"beat-stage s-"+(b.stage||"setup")}>{b.stage}</span>
+                    <span className="beat-desc">{b.description||<span className="dim">(empty)</span>}</span>
+                  </div>
+                ))}
+                <button className="beat-add" onClick={()=>setEditing({newFor:{character_id:c.id, act:a}})}>+ beat</button>
+              </div>
+            ))}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {editing && <ArcModal data={data} editing={editing} user={user}
+        onClose={()=>setEditing(null)} onSaved={()=>{ setEditing(null); reload(); }} />}
+    </>
+  );
+}
+
+function ArcModal({ data, editing, user, onClose, onSaved }) {
+  const isNew = !!editing.newFor;
+  const seed = isNew
+    ? { character_id:editing.newFor.character_id, act:editing.newFor.act, stage:"setup", description:"" }
+    : { ...editing.beat };
+  const [f, setF] = useState(seed);
+  const [busy, setBusy] = useState(false);
+  const set = (k,v)=>setF(s=>({...s,[k]:v}));
+  const charName = (data.characters.find(c=>c.id===f.character_id)||{}).name || "character";
+
+  const save = async ()=>{
+    setBusy(true);
+    let id = f.id;
+    if (isNew){
+      const nextOrder = (data.arcs||[]).filter(a=>a.character_id===f.character_id && (a.act||"I")===f.act).length;
+      const { data:rows, error } = await sb.from("LS_character_arcs")
+        .insert({ character_id:f.character_id, act:f.act, stage:f.stage, description:f.description, sort_order:nextOrder })
+        .select();
+      if (error){ setBusy(false); alert("Save failed: "+error.message); return; }
+      id = rows && rows[0] && rows[0].id;
+      await logChange("arc", id, user.email, `added ${f.stage} beat — ${charName} (Act ${f.act})`);
+    } else {
+      const { error } = await sb.from("LS_character_arcs")
+        .update({ act:f.act, stage:f.stage, description:f.description }).eq("id", f.id);
+      if (error){ setBusy(false); alert("Save failed: "+error.message); return; }
+      await logChange("arc", f.id, user.email, `edited ${f.stage} beat — ${charName} (Act ${f.act})`);
+    }
+    setBusy(false); onSaved();
+  };
+
+  const del = async ()=>{
+    if (!confirm("Delete this beat?")) return;
+    const { error } = await sb.from("LS_character_arcs").delete().eq("id", f.id);
+    if (error){ alert("Delete failed: "+error.message); return; }
+    await logChange("arc", f.id, user.email, `deleted ${f.stage} beat — ${charName} (Act ${f.act})`);
+    onSaved();
+  };
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}>
+        <div className="modal-head">
+          <div className="label">{isNew?"New beat":"Edit beat"} — {charName}</div>
+          <button className="x" onClick={onClose}>ESC ✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="row2">
+            <div className="field"><label>Act</label>
+              <select value={f.act||"I"} onChange={e=>set("act",e.target.value)}>
+                {ACTS.map(a=><option key={a} value={a}>Act {a}</option>)}
+              </select></div>
+            <div className="field"><label>Stage</label>
+              <select value={f.stage||"setup"} onChange={e=>set("stage",e.target.value)}>
+                {ARC_STAGES.map(s=><option key={s} value={s}>{s}</option>)}
+              </select></div>
+          </div>
+          <div className="field"><label>Beat — what happens to {charName} here</label>
+            <textarea rows={5} value={f.description||""} onChange={e=>set("description",e.target.value)}
+              placeholder="e.g. Harold refuses to touch the panel — still nursing the grudge from being passed over." /></div>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <button className="btn" style={{width:"auto"}} disabled={busy} onClick={save}>
+              {busy?"Saving…":"Save beat"}</button>
+            {!isNew && <button className="del-btn" onClick={del}>Delete</button>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ TIMELINE ============================ */
+const STORM_YEAR = 2027;
+const TL_TYPES = ["birth","retirement","pushed_out","milestone","storm","shutdown","restart_deadline","story_beat"];
+
+function birthYearOf(c){
+  if (c.dob){ const m=String(c.dob).match(/(\d{4})/); if(m) return parseInt(m[1]); }
+  if (c.age!=null) return STORM_YEAR - c.age;
+  return null;
+}
+function yearOf(s){ const m=String(s||"").match(/(\d{4})/); return m?parseInt(m[1]):null; }
+function parseStoryHours(s){
+  if (!s) return null;
+  const d=String(s).match(/day\s+(\d+)/i); if(d) return parseInt(d[1])*24;
+  const h=String(s).match(/hour\s+(\d+)/i); if(h) return parseInt(h[1]);
+  const n=String(s).match(/(\d+)/); return n?parseInt(n[1]):null;
+}
+function fmtHours(h){
+  if (h<24) return `Hour ${h}`;
+  const d=h/24; return Number.isInteger(d)?`Day ${d}`:`Day ${d.toFixed(1)}`;
+}
+
+function Timeline({ data, reload, user }){
+  const [sel, setSel] = useState(null);     // selected marker object
+  const [editing, setEditing] = useState(null); // event obj | {isNew, layer}
+  const factionColor = c => { const f=data.factions.find(x=>x.id===c.faction_id); return (f&&f.color)||"#39d353"; };
+  const events = data.events || [];
+
+  // ----- LIFETIMES -----
+  const births = data.characters.map(c=>{
+    const year=birthYearOf(c);
+    return year ? { id:"b-"+c.id, kind:"birth", year, label:c.name, color:factionColor(c),
+      detail:`${c.name} born ~${year}${c.knowledge_domain?` · ${c.knowledge_domain}`:""}` } : null;
+  }).filter(Boolean);
+  const lifeEvents = events.filter(e=>e.layer==="lifetimes").map(e=>({
+    id:e.id, kind:"event", year:yearOf(e.event_date), label:e.title, color:"#d29922", e,
+    detail:e.description, when:e.event_date }));
+  const lifeMarkers = [...births, ...lifeEvents.filter(m=>m.year)];
+  const years = lifeMarkers.map(m=>m.year);
+  const minYear = years.length ? Math.floor(Math.min(...years)/10)*10 : 1940;
+  const spanY = Math.max(STORM_YEAR - minYear, 10);
+  const xLife = y => Math.max(0, Math.min(100, (y-minYear)/spanY*100));
+  const lifeTicks = [];
+  for (let y=minYear; y<=STORM_YEAR; y+=10) lifeTicks.push(y);
+
+  // ----- CRISIS -----
+  const deadlines = data.systems.map(s=> s.countdown_hours!=null ? {
+    id:"s-"+s.id, kind:"deadline", hours:s.countdown_hours, label:s.name,
+    color: s.status==="red"?"#f85149":s.status==="amber"?"#d29922":"#39d353",
+    detail:`${s.name} — fails at ${fmtHours(s.countdown_hours)} without manual operation` } : null).filter(Boolean);
+  const crisisEvents = events.filter(e=>e.layer==="crisis").map(e=>({
+    id:e.id, kind:"event", hours:parseStoryHours(e.story_time), label:e.title, color:"#58a6ff", e,
+    detail:e.description, when:e.story_time })).filter(m=>m.hours!=null);
+  const crisisMarkers = [...crisisEvents, ...deadlines];
+  const maxH = Math.max(120, ...crisisMarkers.map(m=>m.hours)) * 1.08;
+  const xCrisis = h => Math.max(0, Math.min(100, h/maxH*100));
+  const crisisTicks = [0,6,24,48,72,96,120,168,240].filter(h=>h<=maxH);
+
+  const Track = ({ markers, xOf, ticks, tickLabel }) => {
+    // stagger labels so they don't stack
+    const sorted = [...markers].sort((a,b)=>xOf(a)-xOf(b));
+    const lvl = {}; sorted.forEach((m,i)=>{ lvl[m.id]=i%3; });
+    return (
+      <div className="tl-track">
+        <div className="tl-axis"></div>
+        {ticks.map((t,i)=>(
+          <div className="tl-tick" key={i} style={{left:xOf({_t:t})+"%"}}>
+            <div className="tk-line"></div><div className="tk-label">{tickLabel(t)}</div>
+          </div>
+        ))}
+        {sorted.map((m,i)=>{
+          const x=xOf(m); const above=i%2===0; const off=18+lvl[m.id]*15;
+          return (
+            <React.Fragment key={m.id}>
+              <div className="tl-dot" style={{left:x+"%", background:m.color,
+                boxShadow: sel&&sel.id===m.id ? "0 0 0 3px var(--green)" : "none"}}
+                onClick={()=>setSel(m)} title={m.label}></div>
+              <div className={"tl-mlabel"} onClick={()=>setSel(m)}
+                style={{left:x+"%", top: above ? (84-off)+"px" : (96+off)+"px"}}>{m.label}</div>
+            </React.Fragment>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div className="panel" style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+        <div><span className="label">Timeline</span> &nbsp;
+          <span className="dim">two layers — human lifetimes vs. the crisis countdown. Their collision is the movie.</span></div>
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn sm" onClick={()=>setEditing({isNew:true, layer:"lifetimes"})}>+ Lifetime event</button>
+          <button className="btn sm" onClick={()=>setEditing({isNew:true, layer:"crisis"})}>+ Crisis beat</button>
+        </div>
+      </div>
+
+      <div className="panel">
+        <h2>Lifetimes <span className="dim" style={{fontSize:11,letterSpacing:0,textTransform:"none"}}>· {minYear}–{STORM_YEAR} · births auto-plotted from age/DOB</span></h2>
+        <div className="tl-track-wrap">
+          <Track markers={lifeMarkers} xOf={m=> "_t" in m ? xLife(m._t) : xLife(m.year)}
+            ticks={lifeTicks} tickLabel={t=>t} />
+        </div>
+      </div>
+
+      <div className="panel">
+        <h2>Crisis <span className="dim" style={{fontSize:11,letterSpacing:0,textTransform:"none"}}>· Hour 0 onward · red/amber dots = system deadlines from The Clock</span></h2>
+        <div className="tl-track-wrap">
+          <Track markers={crisisMarkers} xOf={m=> "_t" in m ? xCrisis(m._t) : xCrisis(m.hours)}
+            ticks={crisisTicks} tickLabel={fmtHours} />
+        </div>
+      </div>
+
+      {sel && (
+        <div className="tl-detail">
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+            <div>
+              <span className="label">{sel.kind==="birth"?"Birth":sel.kind==="deadline"?"System deadline":"Event"}</span>
+              <div className="tl-detail-title">{sel.label}{sel.when?` · ${sel.when}`:sel.year?` · ${sel.year}`:sel.hours!=null?` · ${fmtHours(sel.hours)}`:""}</div>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              {sel.kind==="event" && <button className="btn sm" onClick={()=>setEditing(sel.e)}>Edit</button>}
+              <button className="copy-btn" onClick={()=>setSel(null)}>Close</button>
+            </div>
+          </div>
+          {sel.detail && <p style={{margin:"10px 0 0", fontSize:13, lineHeight:1.6}}>{sel.detail}</p>}
+          {sel.kind==="birth" && <p className="dim" style={{fontSize:11,marginTop:8}}>Auto-derived from the character's age. Set a DOB on the character to make this exact.</p>}
+          {sel.kind==="deadline" && <p className="dim" style={{fontSize:11,marginTop:8}}>Auto-derived from The Clock. Change the system's countdown to move this.</p>}
+        </div>
+      )}
+
+      {editing && <TimelineEventModal data={data} editing={editing} user={user}
+        onClose={()=>setEditing(null)} onSaved={()=>{ setEditing(null); setSel(null); reload(); }} />}
+    </>
+  );
+}
+
+function TimelineEventModal({ data, editing, user, onClose, onSaved }){
+  const isNew = !!editing.isNew;
+  const layer = isNew ? editing.layer : (editing.layer||"crisis");
+  const seed = isNew
+    ? { layer, title:"", type: layer==="lifetimes"?"milestone":"story_beat", description:"",
+        event_date:"", story_time:"", character_id:null, act:"" }
+    : { ...editing };
+  const [f,setF] = useState(seed);
+  const [busy,setBusy] = useState(false);
+  const set=(k,v)=>setF(s=>({...s,[k]:v}));
+
+  const save = async ()=>{
+    if (!f.title.trim()){ alert("Give it a title."); return; }
+    setBusy(true);
+    const patch = { layer:f.layer, title:f.title, type:f.type, description:f.description,
+      event_date:f.event_date||null, story_time:f.story_time||null,
+      character_id:f.character_id||null, act:f.act||null };
+    let id=f.id;
+    if (isNew){
+      const { data:rows, error } = await sb.from("LS_timeline_events").insert(patch).select();
+      if (error){ setBusy(false); alert("Save failed: "+error.message); return; }
+      id = rows && rows[0] && rows[0].id;
+    } else {
+      const { error } = await sb.from("LS_timeline_events").update(patch).eq("id", f.id);
+      if (error){ setBusy(false); alert("Save failed: "+error.message); return; }
+    }
+    await logChange("timeline", id, user.email, `${isNew?"added":"edited"} ${f.layer} event — ${f.title}`);
+    setBusy(false); onSaved();
+  };
+  const del = async ()=>{
+    if (!confirm("Delete this event?")) return;
+    const { error } = await sb.from("LS_timeline_events").delete().eq("id", f.id);
+    if (error){ alert("Delete failed: "+error.message); return; }
+    await logChange("timeline", f.id, user.email, `deleted ${f.layer} event — ${f.title}`);
+    onSaved();
+  };
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}>
+        <div className="modal-head">
+          <div className="label">{isNew?"New":"Edit"} {f.layer==="lifetimes"?"lifetime event":"crisis beat"}</div>
+          <button className="x" onClick={onClose}>ESC ✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="field"><label>Title</label>
+            <input value={f.title||""} onChange={e=>set("title",e.target.value)}
+              placeholder={f.layer==="lifetimes"?"e.g. Ruth retires from BNSF":"e.g. President briefed"} /></div>
+          <div className="row2">
+            <div className="field"><label>Layer</label>
+              <select value={f.layer} onChange={e=>set("layer",e.target.value)}>
+                <option value="lifetimes">Lifetimes</option>
+                <option value="crisis">Crisis</option>
+              </select></div>
+            <div className="field"><label>Type</label>
+              <select value={f.type||""} onChange={e=>set("type",e.target.value)}>
+                {TL_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+              </select></div>
+          </div>
+          {f.layer==="lifetimes"
+            ? <div className="field"><label>Year (or date)</label>
+                <input value={f.event_date||""} onChange={e=>set("event_date",e.target.value)} placeholder="e.g. 2009" /></div>
+            : <div className="field"><label>Story time</label>
+                <input value={f.story_time||""} onChange={e=>set("story_time",e.target.value)} placeholder="e.g. Day 2  /  Hour 6" /></div>}
+          <div className="field"><label>Linked character (optional)</label>
+            <select value={f.character_id||""} onChange={e=>set("character_id",e.target.value||null)}>
+              <option value="">— none —</option>
+              {data.characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            </select></div>
+          <div className="field"><label>Description</label>
+            <textarea rows={4} value={f.description||""} onChange={e=>set("description",e.target.value)} /></div>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <button className="btn" style={{width:"auto"}} disabled={busy} onClick={save}>{busy?"Saving…":"Save event"}</button>
+            {!isNew && <button className="del-btn" onClick={del}>Delete</button>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ THE CLOCK ============================ */
+const CLOCK_STATUS = ["green","amber","red"];
+function hms(sec){
+  sec = Math.max(0, Math.floor(sec));
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  const p=n=>String(n).padStart(2,"0");
+  return `${p(h)}:${p(m)}:${p(s)}`;
+}
+
+function Clock({ data, reload, user }){
+  const systems = [...data.systems].sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  const initial = React.useMemo(
+    ()=>Object.fromEntries(systems.map(s=>[s.id,(s.countdown_hours||0)*3600])),
+    [data.systems]
+  );
+  const [remaining, setRemaining] = useState(initial);
+  const [running, setRunning] = useState(false);
+  const [editing, setEditing] = useState(null);
+
+  useEffect(()=>{ setRemaining(initial); setRunning(false); }, [initial]);
+  useEffect(()=>{
+    if (!running) return;
+    const SPEED=3600, STEP=200; // 1 real second ≈ 1 story hour
+    const id=setInterval(()=>{
+      setRemaining(prev=>{
+        const next={...prev};
+        for (const k in next) next[k]=Math.max(0, next[k]-SPEED*(STEP/1000));
+        return next;
+      });
+    }, STEP);
+    return ()=>clearInterval(id);
+  }, [running]);
+
+  const charName = id => { const c=data.characters.find(x=>x.id===id); return c?c.name:null; };
+
+  return (
+    <>
+      <div className="panel" style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+        <div><span className="label">The Clock</span> &nbsp;
+          <span className="dim">infrastructure failing in real time — lamps drive off the data</span></div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <button className="btn sm" onClick={()=>setRunning(r=>!r)}>{running?"❚❚ Pause":"▶ Run clock"}</button>
+          <button className="btn sm" onClick={()=>{ setRunning(false); setRemaining(initial); }}>↺ Reset</button>
+          <button className="btn sm" onClick={()=>setEditing({isNew:true})}>+ System</button>
+        </div>
+      </div>
+
+      <div className="clock-grid">
+        {systems.map(s=>{
+          const rem = remaining[s.id] ?? (s.countdown_hours||0)*3600;
+          const init = (s.countdown_hours||0)*3600 || 1;
+          const pct = Math.max(0, Math.min(100, rem/init*100));
+          const failed = rem<=0;
+          return (
+            <div className={"clock-tile"+(failed?" failed":"")} key={s.id}>
+              <div className="ct-head">
+                <span className={"lamp "+(failed?"red":(s.status||"green"))}></span>
+                <span className="ct-name">{s.name}</span>
+                <button className="copy-btn" onClick={()=>setEditing(s)}>Edit</button>
+              </div>
+              <div className={"ct-readout "+(failed?"r-red":"r-"+(s.status||"green"))}>
+                {failed ? "— FAILED —" : hms(rem)}
+              </div>
+              <div className="ct-sub dim">{failed ? "window elapsed" : `T-minus · ${s.countdown_hours}h window`}</div>
+              <div className="fuse"><div className={"fuse-fill f-"+(s.status||"green")} style={{width:pct+"%"}}></div></div>
+              {s.assigned_character_id && <div className="ct-assigned">▸ {charName(s.assigned_character_id)||"unassigned"}</div>}
+              {s.description && <div className="ct-desc">{s.description}</div>}
+            </div>
+          );
+        })}
+        {systems.length===0 && <div className="dim">No systems yet. Add one.</div>}
+      </div>
+
+      {editing && <SystemModal data={data} editing={editing} user={user}
+        onClose={()=>setEditing(null)} onSaved={()=>{ setEditing(null); reload(); }} />}
+    </>
+  );
+}
+
+function SystemModal({ data, editing, user, onClose, onSaved }){
+  const isNew = !!editing.isNew;
+  const seed = isNew ? { name:"", countdown_hours:72, status:"amber", assigned_character_id:null, description:"" } : { ...editing };
+  const [f,setF]=useState(seed);
+  const [busy,setBusy]=useState(false);
+  const set=(k,v)=>setF(s=>({...s,[k]:v}));
+
+  const save = async ()=>{
+    if (!f.name.trim()){ alert("Name the system."); return; }
+    setBusy(true);
+    const patch = { name:f.name, countdown_hours: f.countdown_hours?parseInt(f.countdown_hours):null,
+      status:f.status, assigned_character_id:f.assigned_character_id||null, description:f.description };
+    let id=f.id;
+    if (isNew){
+      const { data:rows, error } = await sb.from("LS_systems").insert(patch).select();
+      if (error){ setBusy(false); alert("Save failed: "+error.message); return; }
+      id = rows && rows[0] && rows[0].id;
+    } else {
+      const { error } = await sb.from("LS_systems").update(patch).eq("id", f.id);
+      if (error){ setBusy(false); alert("Save failed: "+error.message); return; }
+    }
+    await logChange("system", id, user.email, `${isNew?"added":"edited"} system — ${f.name} (${f.status}, ${f.countdown_hours}h)`);
+    setBusy(false); onSaved();
+  };
+  const del = async ()=>{
+    if (!confirm(`Delete "${f.name}"?`)) return;
+    const { error } = await sb.from("LS_systems").delete().eq("id", f.id);
+    if (error){ alert("Delete failed: "+error.message); return; }
+    await logChange("system", f.id, user.email, `deleted system — ${f.name}`);
+    onSaved();
+  };
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:520}}>
+        <div className="modal-head">
+          <div className="label">{isNew?"New system":"Edit system"}</div>
+          <button className="x" onClick={onClose}>ESC ✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="field"><label>Name</label>
+            <input value={f.name||""} onChange={e=>set("name",e.target.value)} placeholder="e.g. Hoover Dam / Glen Canyon" /></div>
+          <div className="row2">
+            <div className="field"><label>Countdown window (hours)</label>
+              <input type="number" value={f.countdown_hours||""} onChange={e=>set("countdown_hours",e.target.value)} /></div>
+            <div className="field"><label>Status</label>
+              <select value={f.status||"green"} onChange={e=>set("status",e.target.value)}>
+                {CLOCK_STATUS.map(s=><option key={s} value={s}>{s}</option>)}
+              </select></div>
+          </div>
+          <div className="field"><label>Assigned character (optional)</label>
+            <select value={f.assigned_character_id||""} onChange={e=>set("assigned_character_id",e.target.value||null)}>
+              <option value="">— unassigned —</option>
+              {data.characters.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            </select></div>
+          <div className="field"><label>Description</label>
+            <textarea rows={4} value={f.description||""} onChange={e=>set("description",e.target.value)} /></div>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <button className="btn" style={{width:"auto"}} disabled={busy} onClick={save}>{busy?"Saving…":"Save system"}</button>
+            {!isNew && <button className="del-btn" onClick={del}>Delete</button>}
+          </div>
+          <div className="dim" style={{fontSize:11,marginTop:10}}>Countdown + status also feed the Timeline's crisis deadlines and the Overview board.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================ ANTAGONISTS ============================ */
+const ANT_FORCES = [
+  {
+    id:"ANT-001", name:"The Cascade", full:"The Cascade Timer",
+    type:"Systemic / structural / environmental antagonist",
+    color:"#f85149",
+    question:"What is failing next?",
+    pressure:"Time",
+    description:"Not a single event — a sequential failure of interconnected infrastructure systems. Each collapsed system puts pressure on every system connected to it. Represented throughout the film by a visible countdown timer that recalibrates to the next unavoidable catastrophe after each crisis is resolved.",
+    dramatic:"Creates the ticking-clock suspense engine that structures the entire film. Every victory reveals the next emergency. The heroes are never fully done.",
+    theme:"Civilization is not collapsing all at once. It is missing maintenance windows.",
+  },
+  {
+    id:"ANT-002", name:"The Sovereigns", full:"The Sovereigns",
+    type:"Human / militant / ideological antagonist",
+    color:"#d29922",
+    question:"Who benefits from collapse?",
+    pressure:"Force",
+    description:"Armed faction that emerges during the collapse. Organized, ideological, and opportunistic. They believe the solar flare exposed the weakness of modern civilization — not a tragedy but an opening. They see themselves as the rightful inheritors of the broken world. They don't want society restored because restoration would make them small again.",
+    dramatic:"Physical danger, sabotage, ambush, territorial seizure. A human face for collapse. A direct threat to the elderly protagonists. A dark mirror of the Legacy team's knowledge of systems.",
+    theme:"The Legacy team sees infrastructure as a public trust. The Sovereigns see infrastructure as leverage.",
+  },
+  {
+    id:"ANT-003", name:"The SRU", full:"Systems Recovery Unit",
+    type:"Institutional / technical / bureaucratic antagonist",
+    color:"#58a6ff",
+    question:"Who refuses to admit the old knowledge matters?",
+    pressure:"Authority",
+    description:"The official current-age engineering task force assembled after the solar flare. Highly credentialed, technically impressive. After the flare, their tools are broken, their dashboards are blind, and their assumptions are failing — but they keep trying to restore the modern stack first, treating analog interventions as temporary distractions.",
+    dramatic:"Delays, questions, undermines, blocks, and obstructs the Legacy engineers at critical moments. Creates false hope by repeatedly claiming modern systems are almost restored.",
+    theme:"A civilization that confused control panels for control. They know systems through interfaces. The Legacy engineers know systems through physical contact, sound, smell, gauges, and lived experience.",
+  }
+];
+
+function Antagonists({ data }) {
+  const systems = [...data.systems].sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+
+  // Cascade Timer: lowest-hours active (non-green) system = next catastrophe
+  const activeCrises = systems.filter(s => s.status !== 'green');
+  const nextCrisis = activeCrises.length
+    ? activeCrises.reduce((min,s)=>((s.countdown_hours||0)<(min.countdown_hours||0)?s:min), activeCrises[0])
+    : null;
+
+  return (
+    <>
+      {/* Three-Force Overview */}
+      <div className="panel">
+        <h2>Antagonist Forces — Three-Force Model</h2>
+        <p className="dim" style={{marginBottom:16,fontSize:12,lineHeight:1.6}}>
+          Three forces drive the central dramatic pressure of the film. The strongest scenes involve all three simultaneously — time, force, and authority pressing from every direction.
+        </p>
+        <div className="ant-force-grid">
+          {ANT_FORCES.map(f=>(
+            <div className="ant-card" key={f.id} style={{borderColor:f.color}}>
+              <div className="ant-card-head">
+                <span className="ant-id">{f.id}</span>
+                <div>
+                  <div className="ant-name" style={{color:f.color}}>{f.name}</div>
+                  {f.full!==f.name && <div className="ant-fullname">{f.full}</div>}
+                </div>
+              </div>
+              <div className="ant-type">{f.type}</div>
+              <div className="ant-kv">
+                <span className="ant-kv-label">Central question</span>
+                <span className="ant-kv-val">"{f.question}"</span>
+              </div>
+              <div className="ant-kv">
+                <span className="ant-kv-label">Pressure type</span>
+                <span className="ant-kv-val" style={{color:f.color,fontStyle:"normal",fontFamily:"var(--display)",fontSize:13}}>{f.pressure}</span>
+              </div>
+              <p className="ant-desc" style={{marginTop:12}}>{f.description}</p>
+              <div className="ant-section-head">Dramatic function</div>
+              <p className="ant-desc">{f.dramatic}</p>
+              <div className="ant-section-head">Theme</div>
+              <p className="ant-desc">{f.theme}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Cascade Timer */}
+      <div className="panel">
+        <h2>Cascade Timer — Infrastructure Threat Queue</h2>
+        <p className="dim" style={{marginBottom:16,fontSize:12,lineHeight:1.6}}>
+          The timer always displays time to the next unavoidable catastrophic threshold. When a crisis is resolved, it recalibrates to the next. Systems are managed in The Clock tab.
+        </p>
+
+        {nextCrisis ? (
+          <div className="cascade-primary">
+            <div className="cascade-label">CASCADE CLOCK — NEXT THRESHOLD</div>
+            <div className="cascade-name">{nextCrisis.name}</div>
+            <div className="cascade-hours">T− {nextCrisis.countdown_hours}h</div>
+            <div className="cascade-sub">{nextCrisis.description || "No description — edit in The Clock tab."}</div>
+          </div>
+        ) : (
+          <div className="dim" style={{marginBottom:20,padding:"12px 0"}}>No active crises. All systems green, or add systems in The Clock tab.</div>
+        )}
+
+        <div className="cascade-queue">
+          {systems.map(s=>{
+            const isNext = nextCrisis && s.id===nextCrisis.id;
+            const resolved = s.status==="green";
+            const critical = s.status==="red";
+            return (
+              <div className={"cascade-row"+(isNext?" cascade-row-active":"")} key={s.id}>
+                <span className={"lamp "+(resolved?"green":critical?"red":"amber")}></span>
+                <div style={{flex:1}}>
+                  <div style={{color:"#dff0df",fontSize:13}}>{s.name}</div>
+                  <div className="dim" style={{fontSize:10}}>
+                    {resolved ? "Stable / resolved" : `Failure threshold: ${s.countdown_hours}h window`}
+                  </div>
+                </div>
+                <div style={{textAlign:"right",fontSize:11,whiteSpace:"nowrap"}}>
+                  {resolved
+                    ? <span style={{color:"var(--green)"}}>RESOLVED</span>
+                    : <span style={{color:critical?"var(--red)":"var(--amber)"}}>{s.countdown_hours}h</span>}
+                </div>
+              </div>
+            );
+          })}
+          {systems.length===0 && <div className="dim" style={{padding:"12px 0"}}>No systems yet. Add them in The Clock tab.</div>}
+        </div>
+
+        <div className="dim" style={{marginTop:14,fontSize:11,lineHeight:1.6,borderTop:"1px solid var(--border)",paddingTop:12}}>
+          Countdown logic: when Crisis A (72h) is resolved, the clock resets to the remaining gap before Crisis B. If Crisis B was originally 100h away, the new display shows 28h. The timer never feels arbitrary — every countdown is tied to a physical system with a clear failure threshold.
+        </div>
+      </div>
+
+      {/* Combined Scene Example */}
+      <div className="panel">
+        <h2>Combined Force — Example Scene</h2>
+        <div className="ant-example">
+          <div className="ant-example-row">
+            <span className="ant-ex-force" style={{color:"var(--red)"}}>THE CASCADE</span>
+            <span>Timer shows a regional water system will fail in 19 hours.</span>
+          </div>
+          <div className="ant-example-row">
+            <span className="ant-ex-force" style={{color:"var(--blue)"}}>THE SRU</span>
+            <span>Refuses to authorize the detour — believes the modern supervisory control platform will restore within 12 hours.</span>
+          </div>
+          <div className="ant-example-row">
+            <span className="ant-ex-force" style={{color:"var(--amber)"}}>THE SOVEREIGNS</span>
+            <span>Seizes the pumping station. They understand: whoever controls water controls the population.</span>
+          </div>
+          <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid var(--border)",fontSize:12,color:"var(--text-dim)",lineHeight:1.6}}>
+            The Legacy team must now overcome <strong style={{color:"var(--red)"}}>time</strong>, <strong style={{color:"var(--blue)"}}>bureaucracy</strong>, and <strong style={{color:"var(--amber)"}}>armed opposition</strong> in the same sequence.
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ============================ ACTIVITY (audit log) ============================ */
+function Activity({ data }) {
+  const notes = data.notes || [];
+  const charById = Object.fromEntries(data.characters.map(c=>[c.id,c.name]));
+  const sceneById = Object.fromEntries(data.scenes.map(s=>[s.id,s.title]));
+  const entityName = (n)=>{
+    if (n.entity_type==="character") return charById[n.entity_id] || "(removed)";
+    if (n.entity_type==="scene")     return sceneById[n.entity_id] || "(deleted)";
+    return "";
+  };
+  return (
+    <div className="panel">
+      <h2>Activity Log <span className="dim" style={{fontSize:11,letterSpacing:0,textTransform:"none"}}>· {notes.length} entries · append-only</span></h2>
+      {notes.length===0 && <div className="dim">No changes logged yet. Edit a character or scene and it shows up here.</div>}
+      <div className="audit">
+        {notes.map(n=>(
+          <div className="audit-row" key={n.id}>
+            <span className="audit-when" title={new Date(n.created_at).toLocaleString()}>{timeAgo(n.created_at)}</span>
+            <span className="audit-who">{shortName(n.author)}</span>
+            <span className="audit-what">{n.body}
+              {entityName(n) && <span className="audit-ent"> — {n.entity_type}: {entityName(n)}</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ============================ SOON ============================ */
+function ComingSoon({ name }) {
+  return (
+    <div className="panel">
+      <h2>{name}</h2>
+      <p className="dim">This section lands in the next build phase. The data model is ready —
+        Arcs, Timeline, The Clock, Connections, Scenes, Themes and Activity all have tables seeded.</p>
+    </div>
+  );
+}
+
+/* ============================ APP ============================ */
+const TABS = [
+  {id:"overview",    label:"Overview",    ready:true},
+  {id:"characters",  label:"Characters",  ready:true},
+  {id:"arcs",        label:"Arcs",        ready:true},
+  {id:"timeline",    label:"Timeline",    ready:true},
+  {id:"clock",       label:"The Clock",   ready:true},
+  {id:"antagonists", label:"Antagonists", ready:true},
+  {id:"connections", label:"Connections", ready:false},
+  {id:"scenes",      label:"Scenes",      ready:true},
+  {id:"themes",      label:"Themes",      ready:false},
+  {id:"activity",    label:"Activity",    ready:true},
+];
+
+function readTheme(){
+  try { return localStorage.getItem("ls_theme") || "dark"; } catch(e){ return "dark"; }
+}
+
+function App() {
+  const [session, setSession] = useState(undefined); // undefined=loading
+  const [tab, setTab] = useState("overview");
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState("");
+  const [theme, setTheme] = useState(readTheme);
+
+  useEffect(()=>{
+    document.documentElement.dataset.theme = theme;
+    try { localStorage.setItem("ls_theme", theme); } catch(e){}
+  }, [theme]);
+  const toggleTheme = () => setTheme(t => t==="dark" ? "light" : "dark");
+
+  useEffect(()=>{
+    sb.auth.getSession().then(({data})=>setSession(data.session));
+    const { data:sub } = sb.auth.onAuthStateChange((_e,s)=>setSession(s));
+    return ()=>sub.subscription.unsubscribe();
+  },[]);
+
+  const load = useCallback(async ()=>{
+    setErr("");
+    const q = (t,order="sort_order")=>sb.from(t).select("*").order(order,{ascending:true});
+    const notesQ = sb.from("LS_notes").select("*").order("created_at",{ascending:false}).limit(500);
+    const [fac,ch,sys,sc,th,ar,ev,no] = await Promise.all([
+      q("LS_factions","name"), q("LS_characters"), q("LS_systems"),
+      q("LS_scenes"), q("LS_themes"), q("LS_character_arcs"), q("LS_timeline_events"), notesQ
+    ]);
+    const anyErr = [fac,ch,sys,sc,th,ar,ev,no].find(r=>r.error);
+    if (anyErr) { setErr(anyErr.error.message); return; }
+    setData({
+      factions:fac.data, characters:ch.data, systems:sys.data,
+      scenes:sc.data, themes:th.data, arcs:ar.data, events:ev.data, notes:no.data
+    });
+  },[]);
+
+  useEffect(()=>{ if (session) load(); },[session, load]);
+
+  useEffect(()=>{
+    const esc = e => e.key==="Escape";
+    return ()=>{};
+  },[]);
+
+  if (session === undefined)
+    return <div className="loading">CONNECTING<span className="blinkcursor"></span></div>;
+  if (!session) return <Login />;
+
+  const user = session.user;
+
+  return (
+    <>
+      <div className="topbar">
+        <div className="brand">
+          <h1>Legacy Systems</h1>
+          <span className="sub">Writers' Room</span>
+        </div>
+        <div className="who">
+          <button onClick={toggleTheme} title="Toggle light / dark">{theme==="dark" ? "☀ Light" : "☾ Dark"}</button>
+          <span>{user.email}</span>
+          <button onClick={()=>sb.auth.signOut()}>Sign out</button>
+        </div>
+      </div>
+
+      <div className="nav">
+        {TABS.map(t=>(
+          <button key={t.id}
+            className={(tab===t.id?"active ":"")+(t.ready?"":"soon")}
+            onClick={()=>t.ready && setTab(t.id)}>
+            {t.label}{!t.ready && " ·"}
+          </button>
+        ))}
+      </div>
+
+      <div className="wrap">
+        {err && <div className="msg err">DB error: {err}<br/>
+          <span className="dim">Did you run schema.sql in the Supabase SQL editor?</span></div>}
+        {!data && !err && <div className="loading">LOADING DISPATCH<span className="blinkcursor"></span></div>}
+        {data && tab==="overview"   && <Overview data={data} />}
+        {data && tab==="characters" && <Characters data={data} reload={load} user={user} />}
+        {data && tab==="scenes"     && <Scenes data={data} reload={load} user={user} />}
+        {data && tab==="arcs"       && <Arcs data={data} reload={load} user={user} />}
+        {data && tab==="timeline"   && <Timeline data={data} reload={load} user={user} />}
+        {data && tab==="clock"        && <Clock data={data} reload={load} user={user} />}
+        {data && tab==="antagonists"  && <Antagonists data={data} />}
+        {data && tab==="activity"     && <Activity data={data} />}
+        {data && !["overview","characters","scenes","arcs","timeline","clock","antagonists","activity"].includes(tab) &&
+          <ComingSoon name={TABS.find(t=>t.id===tab).label} />}
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>

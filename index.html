@@ -462,7 +462,7 @@ const { useState, useEffect, useCallback } = React;
 const CFG = window.LS_CONFIG;
 const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
 
-const FACTION_ORDER = ["Legacy Team","The SRU","The Sovereigns"];
+const FACTION_ORDER = ["Legacy Team","The SRU","The Sovereigns","Civilians"];
 
 /* ---------- audit helpers ---------- */
 function shortName(email){ return (email||"").split("@")[0] || "someone"; }
@@ -996,6 +996,9 @@ function exportBible(data) {
   lines.push("- Vic Harrow assembled the Legacy Engineers. He warned about civilizational single-point failure and was ignored.");
   lines.push("- Alan Morse and Vivian Rusk may know each other from pre-crash policy circles.");
   lines.push("- Ellen Harrow (Vic's wife) stays at the Harrow farm, operates the ham radio, and becomes the unofficial dispatcher and emotional spine of the operation. She is not a field operative — she is the communications backbone, memory keeper, and the last voice Vic hears.");
+  lines.push("- Kiki Kross (Kim Kardashian analog, 44) and her daughter Nova Kross (North West analog, 11) are aboard a private jet in the cold open. **Nova dies in the crash. Kiki survives.** This is locked.");
+  lines.push("- 'Just us' / 'Just us' is the last exchange between Kiki and Nova. The audience does not know Nova dies when they say it. They will remember it when they find out.");
+  lines.push("- Kiki's post-crash arc: a woman who built her entire identity on being seen, now invisible and anonymous in a world without screens, carrying the knowledge that she turned the camera off at the end.");
   lines.push("");
   lines.push("**Ellen Harrow — locked arc beats:**");
   lines.push("- EARLY: They joke over the radio. She's annoyed he left without enough socks. She becomes unexpectedly good at it.");

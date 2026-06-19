@@ -291,6 +291,25 @@
   .tl-detail-title { font-family:var(--display); font-size:14px; color:#eafaea; margin-top:3px; }
   html[data-theme="light"] .tl-detail-title { color:#15301b; }
 
+  /* ---------- vertical crisis timeline ---------- */
+  .vtl { display:flex; flex-direction:column; }
+  .vtl-row { display:flex; align-items:flex-start; }
+  .vtl-time { width:72px; flex:none; text-align:right; padding:2px 14px 0 0; font-size:10px;
+    letter-spacing:.5px; color:var(--amber); font-family:var(--mono); white-space:nowrap; }
+  .vtl-spine { flex:none; width:18px; display:flex; flex-direction:column; align-items:center; padding-top:3px; }
+  .vtl-dot { width:11px; height:11px; border-radius:50%; flex:none; }
+  .vtl-line { width:2px; flex:1; min-height:20px; background:var(--border-hot); margin:3px 0; }
+  .vtl-cards { flex:1; padding:0 0 18px 14px; display:flex; flex-direction:column; gap:5px; }
+  .vtl-card { border:1px solid var(--border); background:#0c110c; padding:8px 12px; cursor:pointer; transition:.1s; }
+  html[data-theme="light"] .vtl-card { background:#f5f6f0; }
+  .vtl-card:hover { border-color:var(--border-hot); }
+  .vtl-card-sel { border-color:var(--green) !important; box-shadow:0 0 0 1px #39d35333; }
+  .vtl-badge { display:inline-block; font-size:8px; letter-spacing:1px; text-transform:uppercase;
+    padding:1px 6px; margin-right:8px; vertical-align:middle; }
+  .vtl-card-name { font-size:12px; color:#dff0df; vertical-align:middle; }
+  html[data-theme="light"] .vtl-card-name { color:#1b201b; }
+  .vtl-card-desc { font-size:11px; color:var(--text-dim); line-height:1.5; margin-top:5px; }
+
   /* ---------- arcs board ---------- */
   .arc-legend { display:flex; gap:6px; flex-wrap:wrap; }
   .arcs-grid { display:grid; grid-template-columns: 180px repeat(3, 1fr); gap:1px;
@@ -441,7 +460,7 @@ const { useState, useEffect, useCallback } = React;
 const CFG = window.LS_CONFIG;
 const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
 
-const FACTION_ORDER = ["Legacy Team","Young Engineers","The Sovereigns","The SRU"];
+const FACTION_ORDER = ["Legacy Team","The SRU","The Sovereigns"];
 
 /* ---------- audit helpers ---------- */
 function shortName(email){ return (email||"").split("@")[0] || "someone"; }
@@ -1413,10 +1432,62 @@ function Timeline({ data, reload, user }){
       </div>
 
       <div className="panel">
-        <h2>Crisis <span className="dim" style={{fontSize:11,letterSpacing:0,textTransform:"none"}}>· Hour 0 onward · red/amber dots = system deadlines from The Clock</span></h2>
-        <div className="tl-track-wrap">
-          <Track markers={crisisMarkers} xOf={m=> "_t" in m ? xCrisis(m._t) : xCrisis(m.hours)}
-            ticks={crisisTicks} tickLabel={fmtHours} />
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8,marginBottom:18}}>
+          <div>
+            <h2 style={{margin:0}}>Crisis Timeline</h2>
+            <div className="dim" style={{fontSize:11,marginTop:4}}>Hour 0 onward · red = critical · amber = at risk · blue = story beat · click any card for detail</div>
+          </div>
+          <button className="btn sm" onClick={()=>setEditing({isNew:true, layer:"crisis"})}>+ Crisis beat</button>
+        </div>
+        <div className="vtl">
+          {(()=>{
+            const grouped = {};
+            crisisMarkers.forEach(m=>{
+              const h = m.hours ?? 0;
+              if(!grouped[h]) grouped[h]=[];
+              grouped[h].push(m);
+            });
+            const times = Object.keys(grouped).map(Number).sort((a,b)=>a-b);
+            return times.map((h,i)=>{
+              const items = grouped[h];
+              const isLast = i===times.length-1;
+              const dotColor = items.find(m=>m.color==="#f85149") ? "#f85149"
+                             : items.find(m=>m.color==="#d29922") ? "#d29922"
+                             : "var(--blue)";
+              return (
+                <div className="vtl-row" key={h}>
+                  <div className="vtl-time">{fmtHours(h)}</div>
+                  <div className="vtl-spine">
+                    <div className="vtl-dot" style={{background:dotColor,
+                      boxShadow:dotColor==="var(--blue)"?"none":`0 0 7px ${dotColor}99`}}></div>
+                    {!isLast && <div className="vtl-line"></div>}
+                  </div>
+                  <div className="vtl-cards">
+                    {items.map(m=>(
+                      <div key={m.id}
+                        className={"vtl-card"+(sel&&sel.id===m.id?" vtl-card-sel":"")}
+                        onClick={()=>{ if(m.kind==="event") setEditing(m.e); else setSel(sel&&sel.id===m.id?null:m); }}>
+                        <span className="vtl-badge" style={{
+                          background: m.kind==="deadline"
+                            ? (m.color||"var(--border-hot)")
+                            : "var(--border-hot)",
+                          color: m.kind==="deadline" ? "#000" : "var(--text-dim)"
+                        }}>
+                          {m.kind==="deadline"
+                            ? (m.color==="#f85149" ? "critical" : "at risk")
+                            : "event"}
+                        </span>
+                        <span className="vtl-card-name">{m.label}</span>
+                        {m.detail && <div className="vtl-card-desc">
+                          {m.detail.length>120 ? m.detail.slice(0,120)+"…" : m.detail}
+                        </div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       </div>
 
